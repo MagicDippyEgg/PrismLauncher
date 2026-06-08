@@ -24,6 +24,7 @@ jobs:
 
     steps:
       - name: Generate token
+        if: vars.PULL_REQUEST_APP_ID != ''
         id: generate-token
         uses: actions/create-github-app-token@v3
         with:
@@ -32,6 +33,7 @@ jobs:
 
       - name: Gather Dependent PRs
         id: gather_deps
+        if: steps.generate-token.outputs.token != ''
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_id || github.event.pull_request.number }}
@@ -53,7 +55,7 @@ jobs:
           }  >> "$GITHUB_OUTPUT"
 
       - name: Trigger Blocked PR Workflows for Dependants
-        if: fromJSON(steps.gather_deps.outputs.numdeps) > 0
+        if: steps.generate-token.outputs.token != '' && fromJSON(steps.gather_deps.outputs.numdeps) > 0
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           DEPS: ${{ steps.gather_deps.outputs.deps }}
