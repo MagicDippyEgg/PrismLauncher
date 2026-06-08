@@ -130,6 +130,14 @@ class MainWindow : public QMainWindow {
 
     void on_actionViewSelectedInstLogs_triggered();
 
+    void on_actionViewSelectedInstWorlds_triggered();
+
+    void on_actionUpdateAll_triggered();
+
+    void on_actionLaunchRandom_triggered();
+
+    void on_actionCopyInstanceId_triggered();
+
     void refreshInstances();
 
     void checkForUpdates();

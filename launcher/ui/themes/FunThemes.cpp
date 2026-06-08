@@ -62,10 +62,10 @@ QString MinecraftTheme::appStyleSheet() {
 
 QPalette PrideTheme::colorScheme() {
     QPalette palette;
-    palette.setColor(QPalette::Window, QColor(255, 245, 250));
-    palette.setColor(QPalette::WindowText, QColor(50, 0, 50));
-    palette.setColor(QPalette::Base, Qt::white);
-    palette.setColor(QPalette::AlternateBase, QColor(255, 235, 245));
+    palette.setColor(QPalette::Window, QColor(255, 235, 245));
+    palette.setColor(QPalette::WindowText, QColor(80, 0, 80));
+    palette.setColor(QPalette::Base, QColor(255, 250, 252));
+    palette.setColor(QPalette::AlternateBase, QColor(255, 220, 240));
     palette.setColor(QPalette::Highlight, QColor(255, 105, 180)); // Hot pink
     palette.setColor(QPalette::HighlightedText, Qt::white);
     palette.setColor(QPalette::Button, QColor(255, 240, 248));

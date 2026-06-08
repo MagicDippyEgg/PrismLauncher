@@ -60,6 +60,7 @@
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QKeyEvent>
+#include <QRandomGenerator>
 #include <cmath>
 #include <QLabel>
 #include <QMainWindow>
@@ -98,6 +99,7 @@
 #include "ui/dialogs/AboutDialog.h"
 #include "ui/dialogs/CopyInstanceDialog.h"
 #include "ui/dialogs/CreateShortcutDialog.h"
+#include "ui/dialogs/ResourceUpdateDialog.h"
 #include "ui/dialogs/CustomMessageBox.h"
 #include "ui/dialogs/ExportInstanceDialog.h"
 #include "ui/dialogs/ExportPackDialog.h"
@@ -134,6 +136,9 @@
 #include "Json.h"
 
 #include "MMCTime.h"
+#include "meta/Index.h"
+#include "meta/VersionList.h"
+#include "tasks/ConcurrentTask.h"
 
 namespace {
 QString profileInUseFilter(const QString& profile, bool used)
@@ -179,6 +184,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         ui->instanceToolBar->insertWidgetBefore(ui->actionLaunchInstance, renameButton);
 
         ui->instanceToolBar->insertSeparator(ui->actionLaunchInstance);
+        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstMods);
+        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstWorlds);
+        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstScreenshots);
+        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstLogs);
+        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionUpdateAll);
+        ui->instanceToolBar->insertSeparator(ui->actionLaunchInstance);
 
         // restore the instance toolbar settings
         auto const setting_name = QString("WideBarVisibility_%1").arg(ui->instanceToolBar->objectName());
@@ -191,6 +202,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         ui->instanceToolBar->addContextMenuAction(ui->actionToggleStatusBar);
         ui->instanceToolBar->addContextMenuAction(ui->actionLockToolbars);
     }
+
+    connect(ui->actionUpdateAll, &QAction::triggered, this, &MainWindow::on_actionUpdateAll_triggered);
+    connect(ui->actionViewSelectedInstMods, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstMods_triggered);
+    connect(ui->actionViewSelectedInstScreenshots, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstScreenshots_triggered);
+    connect(ui->actionViewSelectedInstLogs, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstLogs_triggered);
+    connect(ui->actionViewSelectedInstWorlds, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstWorlds_triggered);
+    connect(ui->actionLaunchRandom, &QAction::triggered, this, &MainWindow::on_actionLaunchRandom_triggered);
+    connect(ui->actionCopyInstanceId, &QAction::triggered, this, &MainWindow::on_actionCopyInstanceId_triggered);
 
     // set the menu for the folders help, accounts, and export tool buttons
     {
@@ -466,6 +485,8 @@ void MainWindow::retranslateUi()
     changeIconButton->setToolTip(ui->actionChangeInstIcon->toolTip());
     renameButton->setToolTip(ui->actionRenameInstance->toolTip());
 
+    ui->actionUpdateAll->setToolTip(ui->actionUpdateAll->toolTip());
+
     // replace the %1 with the launcher display name in some actions
     if (helpMenuButton->toolTip().contains("%1"))
         helpMenuButton->setToolTip(helpMenuButton->toolTip().arg(BuildConfig.LAUNCHER_DISPLAYNAME));
@@ -566,6 +587,12 @@ void MainWindow::showInstanceContextMenu(const QPoint& pos)
         actions.removeLast();
         actions.removeLast();
 
+        actions.prepend(ui->actionCopyInstanceId);
+        actions.prepend(ui->actionUpdateAll);
+        actions.prepend(ui->actionViewSelectedInstLogs);
+        actions.prepend(ui->actionViewSelectedInstScreenshots);
+        actions.prepend(ui->actionViewSelectedInstWorlds);
+        actions.prepend(ui->actionViewSelectedInstMods);
         actions.prepend(ui->actionChangeInstIcon);
         actions.prepend(ui->actionRenameInstance);
 
@@ -1609,6 +1636,16 @@ void MainWindow::on_actionViewSelectedInstScreenshots_triggered()
     }
 }
 
+void MainWindow::on_actionViewSelectedInstWorlds_triggered()
+{
+    if (m_selectedInstance) {
+        auto mcInstance = dynamic_cast<MinecraftInstance*>(m_selectedInstance);
+        if (mcInstance) {
+            DesktopServices::openPath(mcInstance->worldDir(), true);
+        }
+    }
+}
+
 void MainWindow::on_actionViewSelectedInstLogs_triggered()
 {
     if (m_selectedInstance) {
@@ -1622,6 +1659,127 @@ void MainWindow::on_actionViewSelectedInstMods_triggered()
     if (m_selectedInstance) {
         QString str = m_selectedInstance->modsRoot();
         DesktopServices::openPath(str, true);
+    }
+}
+
+void MainWindow::on_actionUpdateAll_triggered()
+{
+    if (!m_selectedInstance)
+        return;
+
+    auto mcInstance = dynamic_cast<MinecraftInstance*>(m_selectedInstance);
+    if (!mcInstance)
+        return;
+
+    if (!APPLICATION->accounts()->anyAccountIsValid()) {
+        CustomMessageBox::selectable(this, tr("Error"),
+                                     tr("Cannot update instances unless you have at least one account added.\nPlease add a Microsoft "
+                                        "account."),
+                                     QMessageBox::Warning)
+            ->show();
+        return;
+    }
+
+    auto profile = mcInstance->getPackProfile();
+    auto mcComponent = profile->getComponent("net.minecraft");
+    if (!mcComponent)
+        return;
+
+    auto mcList = mcComponent->getVersionList();
+    if (!mcList)
+        return;
+
+    // Fetch latest Minecraft release
+    auto latestMc = mcList->getRecommended();
+    if (!latestMc) {
+        // Try to load list if not loaded
+        auto loadTask = mcList->getLoadTask(true);
+        ProgressDialog tDialog(this);
+        if (tDialog.execWithTask(loadTask.get()) != QDialog::Accepted)
+            return;
+        latestMc = mcList->getRecommended();
+    }
+
+    if (latestMc) {
+        QString latestMcVer = latestMc->descriptor();
+        QString currentMcVer = mcComponent->getVersion();
+
+        if (latestMcVer != currentMcVer) {
+            auto response = CustomMessageBox::selectable(
+                                this, tr("Update Minecraft?"),
+                                tr("Do you want to update Minecraft from %1 to %2?").arg(currentMcVer, latestMcVer), QMessageBox::Question,
+                                QMessageBox::Yes | QMessageBox::No)
+                                ->exec();
+            if (response == QMessageBox::Yes) {
+                profile->setComponentVersion("net.minecraft", latestMcVer, true);
+            }
+        }
+    }
+
+    // Update mod loaders
+    QStringList loaders = { "net.minecraftforge", "net.fabricmc.fabric-loader", "org.quiltmc.quilt-loader", "net.neoforged" };
+    for (const auto& uid : loaders) {
+        auto comp = profile->getComponent(uid);
+        if (comp) {
+            auto list = comp->getVersionList();
+            if (list) {
+                auto latestLoader = list->getRecommendedForParent("net.minecraft", profile->getComponentVersion("net.minecraft"));
+                if (latestLoader) {
+                    profile->setComponentVersion(uid, latestLoader->descriptor());
+                }
+            }
+        }
+    }
+
+    // Resolve dependencies
+    profile->resolve(Net::Mode::Online);
+    auto resolveTask = profile->getCurrentTask();
+    if (resolveTask) {
+        ProgressDialog tDialog(this);
+        tDialog.execWithTask(resolveTask.get());
+    }
+
+    // Finally, check for mod updates
+    auto modsModel = mcInstance->loaderModList();
+    if (modsModel) {
+        modsModel->update();
+        auto modsList = modsModel->allMods();
+        ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
+        updateDialog.checkCandidates();
+        if (!updateDialog.noUpdates()) {
+            if (updateDialog.exec() != 0) {
+                auto* tasks = new ConcurrentTask("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
+                for (const auto& task : updateDialog.getTasks()) {
+                    tasks->addTask(task);
+                }
+                ProgressDialog loadDialog(this);
+                loadDialog.setSkipButton(true, tr("Abort"));
+                loadDialog.execWithTask(tasks);
+                modsModel->update();
+            }
+        }
+    }
+
+    CustomMessageBox::selectable(this, tr("Update All"), tr("Update check completed!"), QMessageBox::Information)->show();
+}
+
+void MainWindow::on_actionLaunchRandom_triggered()
+{
+    int count = APPLICATION->instances()->count();
+    if (count == 0)
+        return;
+
+    int index = QRandomGenerator::global()->bounded(count);
+    BaseInstance* inst = APPLICATION->instances()->at(index);
+    if (inst) {
+        activateInstance(inst);
+    }
+}
+
+void MainWindow::on_actionCopyInstanceId_triggered()
+{
+    if (m_selectedInstance) {
+        QApplication::clipboard()->setText(m_selectedInstance->id());
     }
 }
 
@@ -1822,11 +1980,14 @@ void MainWindow::setInstanceActionsEnabled(bool enabled)
     ui->actionChangeInstGroup->setEnabled(enabled);
     ui->actionViewSelectedInstFolder->setEnabled(enabled);
     ui->actionViewSelectedInstMods->setEnabled(enabled);
+    ui->actionViewSelectedInstWorlds->setEnabled(enabled);
     ui->actionViewSelectedInstScreenshots->setEnabled(enabled);
     ui->actionViewSelectedInstLogs->setEnabled(enabled);
+    ui->actionUpdateAll->setEnabled(enabled);
     ui->actionExportInstance->setEnabled(enabled);
     ui->actionDeleteInstance->setEnabled(enabled);
     ui->actionCopyInstance->setEnabled(enabled);
+    ui->actionCopyInstanceId->setEnabled(enabled);
     ui->actionCreateInstanceShortcut->setEnabled(enabled);
 }
 

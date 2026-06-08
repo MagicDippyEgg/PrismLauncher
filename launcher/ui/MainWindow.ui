@@ -50,6 +50,7 @@
     <bool>false</bool>
    </attribute>
    <addaction name="actionAddInstance"/>
+   <addaction name="actionLaunchRandom"/>
    <addaction name="separator"/>
    <addaction name="actionFoldersButton"/>
    <addaction name="actionSettings"/>
@@ -150,10 +151,13 @@
     <addaction name="actionChangeInstGroup"/>
     <addaction name="actionViewSelectedInstFolder"/>
     <addaction name="actionViewSelectedInstMods"/>
+    <addaction name="actionViewSelectedInstWorlds"/>
     <addaction name="actionViewSelectedInstScreenshots"/>
     <addaction name="actionViewSelectedInstLogs"/>
+    <addaction name="actionUpdateAll"/>
     <addaction name="actionExportInstance"/>
     <addaction name="actionCopyInstance"/>
+    <addaction name="actionCopyInstanceId"/>
     <addaction name="actionDeleteInstance"/>
     <addaction name="actionCreateInstanceShortcut"/>
     <addaction name="separator"/>
@@ -421,10 +425,10 @@
     <iconset theme="screenshots"/>
    </property>
    <property name="text">
-    <string>&amp;Screenshots</string>
+    <string>Manage &amp;Screenshots</string>
    </property>
    <property name="toolTip">
-    <string>Open the selected instance's screenshots folder.</string>
+    <string>Manage screenshots for the selected instance.</string>
    </property>
   </action>
   <action name="actionViewSelectedInstMods">
@@ -432,10 +436,10 @@
     <iconset theme="centralmods"/>
    </property>
    <property name="text">
-    <string>&amp;Mods</string>
+    <string>Manage &amp;Mods</string>
    </property>
    <property name="toolTip">
-    <string>Open the selected instance's mods folder.</string>
+    <string>Manage mods for the selected instance.</string>
    </property>
   </action>
   <action name="actionViewSelectedInstLogs">
@@ -443,10 +447,54 @@
     <iconset theme="viewfolder"/>
    </property>
    <property name="text">
-    <string>&amp;Logs</string>
+    <string>Manage &amp;Logs</string>
    </property>
    <property name="toolTip">
-    <string>Open the selected instance's logs folder.</string>
+    <string>Manage logs for the selected instance.</string>
+   </property>
+  </action>
+  <action name="actionViewSelectedInstWorlds">
+   <property name="icon">
+    <iconset theme="world"/>
+   </property>
+   <property name="text">
+    <string>Manage &amp;Worlds</string>
+   </property>
+   <property name="toolTip">
+    <string>Manage worlds for the selected instance.</string>
+   </property>
+  </action>
+  <action name="actionUpdateAll">
+   <property name="icon">
+    <iconset theme="checkupdate"/>
+   </property>
+   <property name="text">
+    <string>Update All &amp;Components</string>
+   </property>
+   <property name="toolTip">
+    <string>Automatically update Minecraft, mod loader, and mods to the latest versions for this instance.</string>
+   </property>
+  </action>
+  <action name="actionLaunchRandom">
+   <property name="icon">
+    <iconset theme="launcher"/>
+   </property>
+   <property name="text">
+    <string>Random</string>
+   </property>
+   <property name="toolTip">
+    <string>Launch a random instance.</string>
+   </property>
+  </action>
+  <action name="actionCopyInstanceId">
+   <property name="icon">
+    <iconset theme="copy"/>
+   </property>
+   <property name="text">
+    <string>Copy Instance &amp;ID</string>
+   </property>
+   <property name="toolTip">
+    <string>Copy the internal ID of the selected instance to the clipboard.</string>
    </property>
   </action>
   <action name="actionDeleteInstance">
