@@ -872,6 +872,8 @@ SET(LAUNCHER_SOURCES
     ui/themes/CyberpunkTheme.h
     ui/themes/DarkTheme.cpp
     ui/themes/DarkTheme.h
+    ui/themes/FunThemes.cpp
+    ui/themes/FunThemes.h
     ui/themes/ITheme.cpp
     ui/themes/ITheme.h
     ui/themes/HintOverrideProxyStyle.cpp

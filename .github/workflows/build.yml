@@ -34,8 +34,6 @@ jobs:
 
     permissions:
       contents: read
-      # Required for Azure Trusted Signing
-      id-token: write
       # Required for vcpkg binary cache
       packages: write
 

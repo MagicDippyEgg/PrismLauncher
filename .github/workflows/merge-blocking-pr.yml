@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Generate token
-        if: vars.PULL_REQUEST_APP_ID != ''
+        if: ${{ vars.PULL_REQUEST_APP_ID != '' }}
         id: generate-token
         uses: actions/create-github-app-token@v3
         with:
