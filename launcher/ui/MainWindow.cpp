@@ -1601,6 +1601,30 @@ void MainWindow::on_actionViewSelectedInstFolder_triggered()
     }
 }
 
+void MainWindow::on_actionViewSelectedInstScreenshots_triggered()
+{
+    if (m_selectedInstance) {
+        QString str = FS::PathCombine(m_selectedInstance->gameRoot(), "screenshots");
+        DesktopServices::openPath(str, true);
+    }
+}
+
+void MainWindow::on_actionViewSelectedInstLogs_triggered()
+{
+    if (m_selectedInstance) {
+        QString str = FS::PathCombine(m_selectedInstance->instanceRoot(), "logs");
+        DesktopServices::openPath(str, true);
+    }
+}
+
+void MainWindow::on_actionViewSelectedInstMods_triggered()
+{
+    if (m_selectedInstance) {
+        QString str = m_selectedInstance->modsRoot();
+        DesktopServices::openPath(str, true);
+    }
+}
+
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     // Save the window state and geometry.
@@ -1797,6 +1821,9 @@ void MainWindow::setInstanceActionsEnabled(bool enabled)
     ui->actionEditInstance->setEnabled(enabled);
     ui->actionChangeInstGroup->setEnabled(enabled);
     ui->actionViewSelectedInstFolder->setEnabled(enabled);
+    ui->actionViewSelectedInstMods->setEnabled(enabled);
+    ui->actionViewSelectedInstScreenshots->setEnabled(enabled);
+    ui->actionViewSelectedInstLogs->setEnabled(enabled);
     ui->actionExportInstance->setEnabled(enabled);
     ui->actionDeleteInstance->setEnabled(enabled);
     ui->actionCopyInstance->setEnabled(enabled);

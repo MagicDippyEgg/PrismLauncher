@@ -124,6 +124,12 @@ class MainWindow : public QMainWindow {
 
     void on_actionViewSelectedInstFolder_triggered();
 
+    void on_actionViewSelectedInstScreenshots_triggered();
+
+    void on_actionViewSelectedInstMods_triggered();
+
+    void on_actionViewSelectedInstLogs_triggered();
+
     void refreshInstances();
 
     void checkForUpdates();

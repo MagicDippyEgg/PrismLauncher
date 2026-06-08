@@ -149,6 +149,9 @@
     <addaction name="actionEditInstance"/>
     <addaction name="actionChangeInstGroup"/>
     <addaction name="actionViewSelectedInstFolder"/>
+    <addaction name="actionViewSelectedInstMods"/>
+    <addaction name="actionViewSelectedInstScreenshots"/>
+    <addaction name="actionViewSelectedInstLogs"/>
     <addaction name="actionExportInstance"/>
     <addaction name="actionCopyInstance"/>
     <addaction name="actionDeleteInstance"/>
@@ -411,6 +414,39 @@
    </property>
    <property name="toolTip">
     <string>Open the selected instance's root folder in a file browser.</string>
+   </property>
+  </action>
+  <action name="actionViewSelectedInstScreenshots">
+   <property name="icon">
+    <iconset theme="screenshots"/>
+   </property>
+   <property name="text">
+    <string>&amp;Screenshots</string>
+   </property>
+   <property name="toolTip">
+    <string>Open the selected instance's screenshots folder.</string>
+   </property>
+  </action>
+  <action name="actionViewSelectedInstMods">
+   <property name="icon">
+    <iconset theme="centralmods"/>
+   </property>
+   <property name="text">
+    <string>&amp;Mods</string>
+   </property>
+   <property name="toolTip">
+    <string>Open the selected instance's mods folder.</string>
+   </property>
+  </action>
+  <action name="actionViewSelectedInstLogs">
+   <property name="icon">
+    <iconset theme="viewfolder"/>
+   </property>
+   <property name="text">
+    <string>&amp;Logs</string>
+   </property>
+   <property name="toolTip">
+    <string>Open the selected instance's logs folder.</string>
    </property>
   </action>
   <action name="actionDeleteInstance">

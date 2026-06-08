@@ -62,16 +62,27 @@ QString MinecraftTheme::appStyleSheet() {
 
 QPalette PrideTheme::colorScheme() {
     QPalette palette;
-    palette.setColor(QPalette::Window, QColor(255, 255, 255));
-    palette.setColor(QPalette::WindowText, Qt::black);
-    palette.setColor(QPalette::Base, QColor(240, 240, 240));
-    palette.setColor(QPalette::AlternateBase, QColor(220, 220, 220));
+    palette.setColor(QPalette::Window, QColor(255, 245, 250));
+    palette.setColor(QPalette::WindowText, QColor(50, 0, 50));
+    palette.setColor(QPalette::Base, Qt::white);
+    palette.setColor(QPalette::AlternateBase, QColor(255, 235, 245));
     palette.setColor(QPalette::Highlight, QColor(255, 105, 180)); // Hot pink
     palette.setColor(QPalette::HighlightedText, Qt::white);
+    palette.setColor(QPalette::Button, QColor(255, 240, 248));
+    palette.setColor(QPalette::ButtonText, QColor(150, 0, 100));
+    palette.setColor(QPalette::Link, QColor(0, 120, 215));
     return fadeInactive(palette, fadeAmount(), fadeColor());
 }
 
 QString PrideTheme::appStyleSheet() {
-    return "QMainWindow { border-top: 5px qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ff0000, stop:0.2 #ff8000, stop:0.4 #ffff00, stop:0.6 #00ff00, stop:0.8 #0000ff, stop:1 #8000ff); } "
-           "QToolTip { background-color: white; color: black; border: 1px solid pink; }";
+    return "QMainWindow { border-top: 6px qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #E50000, stop:0.2 #FF8D00, stop:0.4 #FFEE00, stop:0.6 #008121, stop:0.8 #004CFF, stop:1 #760188); } "
+           "QToolTip { background-color: #fff0f8; color: #960064; border: 2px solid #ff69b4; border-radius: 4px; } "
+           "QProgressBar { border: 1px solid #ff69b4; border-radius: 5px; text-align: center; background: white; color: black; } "
+           "QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #E50000, stop:0.2 #FF8D00, stop:0.4 #FFEE00, stop:0.6 #008121, stop:0.8 #004CFF, stop:1 #760188); } "
+           "QMenuBar::item:selected { background: #ffebf5; } "
+           "QMenu::item:selected { background: #ff69b4; color: white; } "
+           "QToolBar { border: none; } "
+           "QScrollBar:vertical { border: none; background: #fff5fa; width: 10px; margin: 0px; } "
+           "QScrollBar::handle:vertical { background: #ffb6c1; min-height: 20px; border-radius: 5px; } "
+           "QScrollBar::handle:vertical:hover { background: #ff69b4; }";
 }
