@@ -55,6 +55,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QButtonGroup>
+#include <QClipboard>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -203,13 +204,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         ui->instanceToolBar->addContextMenuAction(ui->actionLockToolbars);
     }
 
-    connect(ui->actionUpdateAll, &QAction::triggered, this, &MainWindow::on_actionUpdateAll_triggered);
-    connect(ui->actionViewSelectedInstMods, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstMods_triggered);
-    connect(ui->actionViewSelectedInstScreenshots, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstScreenshots_triggered);
-    connect(ui->actionViewSelectedInstLogs, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstLogs_triggered);
-    connect(ui->actionViewSelectedInstWorlds, &QAction::triggered, this, &MainWindow::on_actionViewSelectedInstWorlds_triggered);
-    connect(ui->actionLaunchRandom, &QAction::triggered, this, &MainWindow::on_actionLaunchRandom_triggered);
-    connect(ui->actionCopyInstanceId, &QAction::triggered, this, &MainWindow::on_actionCopyInstanceId_triggered);
 
     // set the menu for the folders help, accounts, and export tool buttons
     {
@@ -1743,7 +1737,7 @@ void MainWindow::on_actionUpdateAll_triggered()
     auto modsModel = mcInstance->loaderModList();
     if (modsModel) {
         modsModel->update();
-        auto modsList = modsModel->allMods();
+        auto modsList = modsModel->allResources();
         ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
         updateDialog.checkCandidates();
         if (!updateDialog.noUpdates()) {
