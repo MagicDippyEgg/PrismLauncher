@@ -60,6 +60,7 @@
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QKeyEvent>
+#include <cmath>
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
@@ -504,11 +505,13 @@ void MainWindow::lockToolbars(bool state)
 
 void MainWindow::konamiTriggered()
 {
-    QString gradient =
-        " stop:0 rgba(125, 0, 0, 255), stop:0.166 rgba(125, 125, 0, 255), stop:0.333 rgba(0, 125, 0, 255), stop:0.5 rgba(0, 125, 125, "
-        "255), stop:0.666 rgba(0, 0, 125, 255), stop:0.833 rgba(125, 0, 125, 255), stop:1 rgba(125, 0, 0, 255));";
-    QString stylesheet = "background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0," + gradient;
-    if (ui->mainToolBar->styleSheet() == stylesheet) {
+    if (!m_secretTimer) {
+        m_secretTimer = new QTimer(this);
+        connect(m_secretTimer, &QTimer::timeout, this, &MainWindow::secretAnimationTick);
+    }
+
+    if (m_secretTimer->isActive()) {
+        m_secretTimer->stop();
         ui->mainToolBar->setStyleSheet("");
         ui->instanceToolBar->setStyleSheet("");
         ui->centralWidget->setStyleSheet("");
@@ -516,13 +519,34 @@ void MainWindow::konamiTriggered()
         ui->statusBar->setStyleSheet("");
         qDebug() << "Super Secret Mode DEACTIVATED!";
     } else {
-        ui->mainToolBar->setStyleSheet(stylesheet);
-        ui->instanceToolBar->setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1," + gradient);
-        ui->centralWidget->setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1," + gradient);
-        ui->newsToolBar->setStyleSheet(stylesheet);
-        ui->statusBar->setStyleSheet(stylesheet);
+        m_secretTimer->start(50);
         qDebug() << "Super Secret Mode ACTIVATED!";
     }
+}
+
+void MainWindow::secretAnimationTick()
+{
+    m_secretAngle = (m_secretAngle + 5) % 360;
+    const double pi = 3.14159265358979323846;
+    double rad = m_secretAngle * pi / 180.0;
+    double x2 = 0.5 + 0.5 * std::cos(rad);
+    double y2 = 0.5 + 0.5 * std::sin(rad);
+    double x1 = 1.0 - x2;
+    double y1 = 1.0 - y2;
+
+    QString gradient =
+        " stop:0 rgba(255, 0, 0, 255), stop:0.166 rgba(255, 255, 0, 255), stop:0.333 rgba(0, 255, 0, 255), "
+        "stop:0.5 rgba(0, 255, 255, 255), stop:0.666 rgba(0, 0, 255, 255), stop:0.833 rgba(255, 0, 255, 255), "
+        "stop:1 rgba(255, 0, 0, 255));";
+
+    QString stylesheet =
+        QString("background-color: qlineargradient(spread:pad, x1:%1, y1:%2, x2:%3, y2:%4,").arg(x1).arg(y1).arg(x2).arg(y2) + gradient;
+
+    ui->mainToolBar->setStyleSheet(stylesheet);
+    ui->instanceToolBar->setStyleSheet(stylesheet);
+    ui->centralWidget->setStyleSheet(stylesheet);
+    ui->newsToolBar->setStyleSheet(stylesheet);
+    ui->statusBar->setStyleSheet(stylesheet);
 }
 
 void MainWindow::showInstanceContextMenu(const QPoint& pos)

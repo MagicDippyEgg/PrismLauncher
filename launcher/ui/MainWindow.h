@@ -210,6 +210,8 @@ class MainWindow : public QMainWindow {
 
     void lockToolbars(bool);
 
+    void secretAnimationTick();
+
 #ifndef Q_OS_MAC
     void keyReleaseEvent(QKeyEvent* event) override;
 #endif
@@ -242,6 +244,8 @@ class MainWindow : public QMainWindow {
     LabeledToolButton* renameButton = nullptr;
     QToolButton* helpMenuButton = nullptr;
     KonamiCode* secretEventFilter = nullptr;
+    QTimer* m_secretTimer = nullptr;
+    int m_secretAngle = 0;
 
     std::shared_ptr<Setting> instanceToolbarSetting = nullptr;
 
