@@ -55,7 +55,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QButtonGroup>
-#include <QClipboard>
+#include <QtGui/QClipboard>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -1737,7 +1737,7 @@ void MainWindow::on_actionUpdateAll_triggered()
     auto modsModel = mcInstance->loaderModList();
     if (modsModel) {
         modsModel->update();
-        auto modsList = modsModel->allResources();
+        QList<Resource*> modsList = modsModel->allResources();
         ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
         updateDialog.checkCandidates();
         if (!updateDialog.noUpdates()) {

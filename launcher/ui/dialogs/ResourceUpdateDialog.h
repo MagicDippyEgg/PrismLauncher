@@ -19,7 +19,7 @@ class ResourceUpdateDialog final : public ReviewMessageBox {
     explicit ResourceUpdateDialog(QWidget* parent,
                                   BaseInstance* instance,
                                   ResourceFolderModel* resourceModel,
-                                  QList<Resource*>& searchFor,
+                                  const QList<Resource*>& searchFor,
                                   bool includeDeps,
                                   QList<ModPlatform::ModLoaderType> loadersList = {});
 
@@ -50,7 +50,7 @@ class ResourceUpdateDialog final : public ReviewMessageBox {
 
     ResourceFolderModel* m_resourceModel;
 
-    QList<Resource*>& m_candidates;
+    const QList<Resource*> m_candidates;
     QList<Resource*> m_modrinthToUpdate;
     QList<Resource*> m_flameToUpdate;
 
