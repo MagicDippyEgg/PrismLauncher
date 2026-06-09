@@ -102,6 +102,7 @@ void AppearanceWidget::applySettings()
     settings->set("CatOpacity", m_ui->catOpacitySlider->value());
     auto catFit = m_ui->catFitComboBox->currentIndex();
     settings->set("CatFit", catFit == 0 ? "fit" : catFit == 1 ? "fill" : "strech");
+    settings->set("ShowLaunchRandomButton", m_ui->randomInstanceCheckBox->isChecked());
 }
 
 void AppearanceWidget::loadSettings()
@@ -122,6 +123,8 @@ void AppearanceWidget::loadSettings()
 
     auto catFit = settings->get("CatFit").toString();
     m_ui->catFitComboBox->setCurrentIndex(catFit == "fit" ? 0 : catFit == "fill" ? 1 : 2);
+
+    m_ui->randomInstanceCheckBox->setChecked(settings->get("ShowLaunchRandomButton").toBool());
 }
 
 void AppearanceWidget::retranslateUi()

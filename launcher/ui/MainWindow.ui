@@ -118,6 +118,12 @@
    <addaction name="actionLaunchInstance"/>
    <addaction name="actionKillInstance"/>
    <addaction name="separator"/>
+   <addaction name="actionViewSelectedInstMods"/>
+   <addaction name="actionViewSelectedInstWorlds"/>
+   <addaction name="actionViewSelectedInstScreenshots"/>
+   <addaction name="actionViewSelectedInstLogs"/>
+   <addaction name="actionUpdateAll"/>
+   <addaction name="separator"/>
    <addaction name="actionEditInstance"/>
    <addaction name="actionChangeInstGroup"/>
    <addaction name="actionViewSelectedInstFolder"/>
@@ -455,7 +461,7 @@
   </action>
   <action name="actionViewSelectedInstWorlds">
    <property name="icon">
-    <iconset theme="world"/>
+    <iconset theme="worlds"/>
    </property>
    <property name="text">
     <string>Manage &amp;Worlds</string>

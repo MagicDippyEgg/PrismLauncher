@@ -232,6 +232,8 @@ class MainWindow : public QMainWindow {
 
     void refreshCurrentInstance();
 
+    void updateManagementButtonsVisibility();
+
    private:
     void retranslateUi();
 

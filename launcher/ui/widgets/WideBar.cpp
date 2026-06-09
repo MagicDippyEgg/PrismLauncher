@@ -14,6 +14,7 @@ class ActionButton : public QToolButton {
         setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         // workaround for breeze and breeze forks
         setProperty("_kde_toolButton_alignment", Qt::AlignLeft);
+        setStyleSheet("QToolButton { text-align: left; }");
 
         if (m_use_default_action) {
             setDefaultAction(action);

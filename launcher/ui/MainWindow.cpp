@@ -140,6 +140,7 @@
 #include "meta/Index.h"
 #include "meta/VersionList.h"
 #include "tasks/ConcurrentTask.h"
+#include "tasks/LambdaTask.h"
 
 namespace {
 QString profileInUseFilter(const QString& profile, bool used)
@@ -184,13 +185,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(renameButton, &QToolButton::clicked, this, &MainWindow::on_actionRenameInstance_triggered);
         ui->instanceToolBar->insertWidgetBefore(ui->actionLaunchInstance, renameButton);
 
-        ui->instanceToolBar->insertSeparator(ui->actionLaunchInstance);
-        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstMods);
-        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstWorlds);
-        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstScreenshots);
-        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionViewSelectedInstLogs);
-        ui->instanceToolBar->insertAction(ui->actionLaunchInstance, ui->actionUpdateAll);
-        ui->instanceToolBar->insertSeparator(ui->actionLaunchInstance);
+        auto toggleManagementAction = new QAction(tr("Toggle management buttons"), this);
+        toggleManagementAction->setIcon(QIcon::fromTheme("menu"));
+        toggleManagementAction->setCheckable(true);
+        toggleManagementAction->setChecked(APPLICATION->settings()->get("ShowManagementButtons").toBool());
+        connect(toggleManagementAction, &QAction::toggled, this, [this](bool checked) {
+            APPLICATION->settings()->set("ShowManagementButtons", checked);
+            updateManagementButtonsVisibility();
+        });
+        ui->instanceToolBar->insertAction(ui->actionViewSelectedInstMods, toggleManagementAction);
+        updateManagementButtonsVisibility();
 
         // restore the instance toolbar settings
         auto const setting_name = QString("WideBarVisibility_%1").arg(ui->instanceToolBar->objectName());
@@ -264,6 +268,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     updateThemeMenu();
     updateMainToolBar();
+    ui->actionLaunchRandom->setVisible(APPLICATION->settings()->get("ShowLaunchRandomButton").toBool());
     // OSX magic.
     setUnifiedTitleAndToolBarOnMac(true);
 
@@ -1425,6 +1430,7 @@ void MainWindow::globalSettingsClosed()
     proxymodel->invalidate();
     proxymodel->sort(0);
     updateMainToolBar();
+    ui->actionLaunchRandom->setVisible(APPLICATION->settings()->get("ShowLaunchRandomButton").toBool());
     updateLaunchButton();
     updateThemeMenu();
     updateStatusCenter();
@@ -1736,19 +1742,36 @@ void MainWindow::on_actionUpdateAll_triggered()
     // Finally, check for mod updates
     auto modsModel = mcInstance->loaderModList();
     if (modsModel) {
+        // Force a re-scan of the mod folder to ensure we have the latest local state
         modsModel->update();
+
+        // If there are pending parse tasks, wait for them to finish
+        if (modsModel->hasPendingParseTasks()) {
+            ProgressDialog tDialog(this);
+            tDialog.execWithTask(modsModel->getCurrentTask().get());
+        }
+
         QList<Resource*> modsList = modsModel->allResources();
         ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
-        updateDialog.checkCandidates();
+
+        // Run the update check in a progress dialog to avoid freezing the UI
+        auto checkTask = make_shared_qobject_ptr<LambdaTask>([&updateDialog]() {
+            updateDialog.checkCandidates();
+            return true;
+        }, tr("Checking for mod updates..."));
+
+        ProgressDialog checkDialog(this);
+        checkDialog.execWithTask(checkTask.get());
+
         if (!updateDialog.noUpdates()) {
             if (updateDialog.exec() != 0) {
-                auto* tasks = new ConcurrentTask("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
+                auto tasks = make_shared_qobject_ptr<ConcurrentTask>("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
                 for (const auto& task : updateDialog.getTasks()) {
                     tasks->addTask(task);
                 }
                 ProgressDialog loadDialog(this);
                 loadDialog.setSkipButton(true, tr("Abort"));
-                loadDialog.execWithTask(tasks);
+                loadDialog.execWithTask(tasks.get());
                 modsModel->update();
             }
         }
@@ -1989,4 +2012,14 @@ void MainWindow::refreshCurrentInstance()
 {
     auto current = view->selectionModel()->currentIndex();
     instanceChanged(current, current);
+}
+
+void MainWindow::updateManagementButtonsVisibility()
+{
+    bool visible = APPLICATION->settings()->get("ShowManagementButtons").toBool();
+    ui->actionViewSelectedInstMods->setVisible(visible);
+    ui->actionViewSelectedInstWorlds->setVisible(visible);
+    ui->actionViewSelectedInstScreenshots->setVisible(visible);
+    ui->actionViewSelectedInstLogs->setVisible(visible);
+    ui->actionUpdateAll->setVisible(visible);
 }
