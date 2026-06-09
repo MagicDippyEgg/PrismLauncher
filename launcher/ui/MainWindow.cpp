@@ -55,7 +55,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QButtonGroup>
-#include <QtGui/QClipboard>
+#include <QClipboard>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -1760,16 +1760,10 @@ void MainWindow::on_actionUpdateAll_triggered()
         QList<Resource*> modsList = modsModel->allResources();
         ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
 
-        // Run the update check in a progress dialog to avoid freezing the UI
-        auto checkTask = makeShared<LambdaTask>([&updateDialog]() {
-            updateDialog.checkCandidates();
-            return true;
-        }, tr("Checking for mod updates..."));
+        // Run the update check. It uses its own ProgressDialogs internally, so it won't freeze the UI.
+        updateDialog.checkCandidates();
 
-        ProgressDialog checkDialog(this);
-        checkDialog.execWithTask(checkTask.get());
-
-        if (!updateDialog.noUpdates()) {
+        if (!updateDialog.noUpdates() && !updateDialog.aborted()) {
             if (updateDialog.exec() != 0) {
                 auto tasks = makeShared<ConcurrentTask>("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
                 for (const auto& task : updateDialog.getTasks()) {

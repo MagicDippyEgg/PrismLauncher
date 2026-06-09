@@ -235,8 +235,8 @@ class ResourceFolderModel : public QAbstractListModel {
      *  so care must be taken in such cases.
      *  TODO: Figure out a way to express this relationship better without templated classes (Q_OBJECT macro disallows that).
      */
-    virtual void onUpdateSucceeded();
-    virtual void onUpdateFailed() {}
+    virtual void onUpdateSucceeded(Task* task);
+    virtual void onUpdateFailed(Task* task) { Q_UNUSED(task); }
 
     /** Called when the parse task with the given ticket is successful.
      *
