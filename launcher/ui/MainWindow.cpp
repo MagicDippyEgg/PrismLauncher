@@ -1748,14 +1748,14 @@ void MainWindow::on_actionUpdateAll_triggered()
         // If there are pending parse tasks, wait for them to finish
         if (modsModel->hasPendingParseTasks()) {
             ProgressDialog tDialog(this);
-            tDialog.execWithTask(modsModel->getCurrentTask().get());
+            tDialog.execWithTask(modsModel->getParserTask());
         }
 
         QList<Resource*> modsList = modsModel->allResources();
         ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
 
         // Run the update check in a progress dialog to avoid freezing the UI
-        auto checkTask = make_shared_qobject_ptr<LambdaTask>([&updateDialog]() {
+        auto checkTask = makeShared<LambdaTask>([&updateDialog]() {
             updateDialog.checkCandidates();
             return true;
         }, tr("Checking for mod updates..."));
@@ -1765,7 +1765,7 @@ void MainWindow::on_actionUpdateAll_triggered()
 
         if (!updateDialog.noUpdates()) {
             if (updateDialog.exec() != 0) {
-                auto tasks = make_shared_qobject_ptr<ConcurrentTask>("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
+                auto tasks = makeShared<ConcurrentTask>("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
                 for (const auto& task : updateDialog.getTasks()) {
                     tasks->addTask(task);
                 }

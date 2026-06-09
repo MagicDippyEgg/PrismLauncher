@@ -406,6 +406,7 @@ set(TASKS_SOURCES
     tasks/SequentialTask.cpp
     tasks/MultipleOptionsTask.h
     tasks/MultipleOptionsTask.cpp
+    tasks/LambdaTask.h
 )
 
 set(SETTINGS_SOURCES

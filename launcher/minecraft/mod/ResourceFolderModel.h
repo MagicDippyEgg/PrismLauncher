@@ -134,6 +134,10 @@ class ResourceFolderModel : public QAbstractListModel {
      */
     bool hasPendingParseTasks() const;
 
+    Task* getParserTask() { return &m_resourceResolver; }
+
+    Task::Ptr getCurrentTask() const { return m_current_update_task; }
+
     /* Qt behavior */
 
     /* Basic columns */
