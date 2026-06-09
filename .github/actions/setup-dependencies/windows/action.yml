@@ -63,9 +63,10 @@ runs:
     - name: Setup MSYS2 (MinGW)
       if: ${{ inputs.msystem != '' }}
       uses: msys2/setup-msys2@v2
+      with:
         msystem: ${{ inputs.msystem }}
-        release: true
         update: true
+        install: >-
           git
         pacboy: >-
           toolchain:p
