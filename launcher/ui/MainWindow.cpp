@@ -1745,6 +1745,12 @@ void MainWindow::on_actionUpdateAll_triggered()
         // Force a re-scan of the mod folder to ensure we have the latest local state
         modsModel->update();
 
+        // Wait for the update task itself!
+        if (auto updateTask = modsModel->getCurrentTask()) {
+            ProgressDialog tDialog(this);
+            tDialog.execWithTask(updateTask.get());
+        }
+
         // If there are pending parse tasks, wait for them to finish
         if (modsModel->hasPendingParseTasks()) {
             ProgressDialog tDialog(this);
@@ -1772,7 +1778,13 @@ void MainWindow::on_actionUpdateAll_triggered()
                 ProgressDialog loadDialog(this);
                 loadDialog.setSkipButton(true, tr("Abort"));
                 loadDialog.execWithTask(tasks.get());
+
+                // Force mod parsing to refresh metadata for the new Minecraft version
                 modsModel->update();
+                if (modsModel->hasPendingParseTasks()) {
+                    ProgressDialog postUpdateDialog(this);
+                    postUpdateDialog.execWithTask(modsModel->getParserTask());
+                }
             }
         }
     }
