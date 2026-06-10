@@ -1667,12 +1667,12 @@ void MainWindow::on_actionUpdateAll_triggered()
     if (!m_selectedInstance)
         return;
 
-    auto response = CustomMessageBox::selectable(
-                        this, tr("Update Instance?"),
-                        tr("Are you sure you want to update this instance?"), QMessageBox::Question,
-                        QMessageBox::Yes | QMessageBox::No)
-                        ->exec();
-    if (response != QMessageBox::Yes) {
+    auto confirmResponse = CustomMessageBox::selectable(
+                               this, tr("Update Instance?"),
+                               tr("Are you sure you want to update this instance?"), QMessageBox::Question,
+                               QMessageBox::Yes | QMessageBox::No)
+                               ->exec();
+    if (confirmResponse != QMessageBox::Yes) {
         return;
     }
 
