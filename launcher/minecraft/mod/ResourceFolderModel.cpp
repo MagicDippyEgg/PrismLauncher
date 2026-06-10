@@ -305,47 +305,52 @@ bool ResourceFolderModel::setResourceEnabled(const QModelIndexList& indexes, Ena
     return succeeded;
 }
 
+static QMutex s_update_task_mutex;
 bool ResourceFolderModel::update()
 {
+    // We hold a lock here to prevent race conditions on the m_current_update_task reset.
+    QMutexLocker lock(&s_update_task_mutex);
+
     // Already updating, so we schedule a future update and return.
     if (m_current_update_task) {
         m_scheduled_update = true;
         return false;
     }
 
-    Task::Ptr updateTask(createUpdateTask());
-    if (!updateTask)
+    m_current_update_task.reset(createUpdateTask());
+    if (!m_current_update_task)
         return false;
 
-    Task::Ptr outerTask = updateTask;
+    connect(m_current_update_task.get(), &Task::succeeded, this, &ResourceFolderModel::onUpdateSucceeded,
+            Qt::ConnectionType::QueuedConnection);
+    connect(m_current_update_task.get(), &Task::failed, this, &ResourceFolderModel::onUpdateFailed, Qt::ConnectionType::QueuedConnection);
+    connect(
+        m_current_update_task.get(), &Task::finished, this,
+        [this] {
+            m_current_update_task.reset();
+            if (m_scheduled_update) {
+                m_scheduled_update = false;
+                update();
+            } else {
+                emit updateFinished();
+            }
+        },
+        Qt::ConnectionType::QueuedConnection);
+
     Task::Ptr preUpdate{ createPreUpdateTask() };
+
     if (preUpdate != nullptr) {
-        auto seqTask = new SequentialTask("ResourceFolderModel::update");
-        seqTask->addTask(preUpdate);
-        seqTask->addTask(updateTask);
-        outerTask = Task::Ptr(seqTask);
+        auto task = new SequentialTask("ResourceFolderModel::update");
+
+        task->addTask(preUpdate);
+        task->addTask(m_current_update_task);
+
+        connect(task, &Task::finished, [task] { task->deleteLater(); });
+
+        QThreadPool::globalInstance()->start(task);
+    } else {
+        QThreadPool::globalInstance()->start(m_current_update_task.get());
     }
-
-    m_current_update_task = outerTask;
-
-    connect(updateTask.get(), &Task::succeeded, this, [this, updateTask] {
-        onUpdateSucceeded(updateTask.get());
-    }, Qt::QueuedConnection);
-    connect(updateTask.get(), &Task::failed, this, [this, updateTask] {
-        onUpdateFailed(updateTask.get());
-    }, Qt::QueuedConnection);
-
-    connect(outerTask.get(), &Task::finished, this, [this, outerTask] {
-        m_current_update_task.reset();
-        if (m_scheduled_update) {
-            m_scheduled_update = false;
-            update();
-        } else {
-            emit updateFinished();
-        }
-    }, Qt::QueuedConnection);
-
-    QThreadPool::globalInstance()->start(outerTask.get());
 
     return true;
 }
@@ -387,9 +392,9 @@ void ResourceFolderModel::resolveResource(Resource::Ptr res)
     }
 }
 
-void ResourceFolderModel::onUpdateSucceeded(Task* task)
+void ResourceFolderModel::onUpdateSucceeded()
 {
-    auto update_results = static_cast<ResourceFolderLoadTask*>(task)->result();
+    auto update_results = static_cast<ResourceFolderLoadTask*>(m_current_update_task.get())->result();
 
     auto& new_resources = update_results->resources;
 

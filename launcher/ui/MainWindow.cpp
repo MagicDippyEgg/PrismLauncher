@@ -55,7 +55,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QButtonGroup>
-#include <QClipboard>
+#include <QtGui/QClipboard>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -1667,6 +1667,15 @@ void MainWindow::on_actionUpdateAll_triggered()
     if (!m_selectedInstance)
         return;
 
+    auto response = CustomMessageBox::selectable(
+                        this, tr("Update Instance?"),
+                        tr("Are you sure you want to update this instance?"), QMessageBox::Question,
+                        QMessageBox::Yes | QMessageBox::No)
+                        ->exec();
+    if (response != QMessageBox::Yes) {
+        return;
+    }
+
     auto mcInstance = dynamic_cast<MinecraftInstance*>(m_selectedInstance);
     if (!mcInstance)
         return;
@@ -1760,10 +1769,16 @@ void MainWindow::on_actionUpdateAll_triggered()
         QList<Resource*> modsList = modsModel->allResources();
         ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
 
-        // Run the update check. It uses its own ProgressDialogs internally, so it won't freeze the UI.
-        updateDialog.checkCandidates();
+        // Run the update check in a progress dialog to avoid freezing the UI
+        auto checkTask = makeShared<LambdaTask>([&updateDialog]() {
+            updateDialog.checkCandidates();
+            return true;
+        }, tr("Checking for mod updates..."));
 
-        if (!updateDialog.noUpdates() && !updateDialog.aborted()) {
+        ProgressDialog checkDialog(this);
+        checkDialog.execWithTask(checkTask.get());
+
+        if (!updateDialog.noUpdates()) {
             if (updateDialog.exec() != 0) {
                 auto tasks = makeShared<ConcurrentTask>("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
                 for (const auto& task : updateDialog.getTasks()) {
