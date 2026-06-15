@@ -1714,14 +1714,7 @@ void MainWindow::on_actionUpdateAll_triggered()
         QString currentMcVer = mcComponent->getVersion();
 
         if (latestMcVer != currentMcVer) {
-            auto response = CustomMessageBox::selectable(
-                                this, tr("Update Minecraft?"),
-                                tr("Do you want to update Minecraft from %1 to %2?").arg(currentMcVer, latestMcVer), QMessageBox::Question,
-                                QMessageBox::Yes | QMessageBox::No)
-                                ->exec();
-            if (response == QMessageBox::Yes) {
-                profile->setComponentVersion("net.minecraft", latestMcVer, true);
-            }
+            profile->setComponentVersion("net.minecraft", latestMcVer, true);
         }
     }
 
@@ -1797,8 +1790,6 @@ void MainWindow::on_actionUpdateAll_triggered()
             }
         }
     }
-
-    CustomMessageBox::selectable(this, tr("Update All"), tr("Update check completed!"), QMessageBox::Information)->show();
 }
 
 void MainWindow::on_actionLaunchRandom_triggered()
