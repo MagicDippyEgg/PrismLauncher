@@ -1764,14 +1764,8 @@ void MainWindow::on_actionUpdateAll_triggered()
         QList<Resource*> modsList = modsModel->allResources();
         ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
 
-        // Run the update check in a progress dialog to avoid freezing the UI
-        auto checkTask = makeShared<LambdaTask>([&updateDialog]() {
-            updateDialog.checkCandidates();
-            return true;
-        }, tr("Checking for mod updates..."));
-
-        ProgressDialog checkDialog(this);
-        checkDialog.execWithTask(checkTask.get());
+        // Check for updates (this internally uses ProgressDialog and must be on main thread)
+        updateDialog.checkCandidates();
 
         if (!updateDialog.noUpdates()) {
             if (updateDialog.exec() != 0) {
@@ -2031,9 +2025,24 @@ void MainWindow::refreshCurrentInstance()
 void MainWindow::updateManagementButtonsVisibility()
 {
     bool visible = APPLICATION->settings()->get("ShowManagementButtons").toBool();
-    ui->actionViewSelectedInstMods->setVisible(visible);
-    ui->actionViewSelectedInstWorlds->setVisible(visible);
-    ui->actionViewSelectedInstScreenshots->setVisible(visible);
-    ui->actionViewSelectedInstLogs->setVisible(visible);
-    ui->actionUpdateAll->setVisible(visible);
+
+    // Management actions should always be available in context menus
+    ui->actionViewSelectedInstMods->setVisible(true);
+    ui->actionViewSelectedInstWorlds->setVisible(true);
+    ui->actionViewSelectedInstScreenshots->setVisible(true);
+    ui->actionViewSelectedInstLogs->setVisible(true);
+    ui->actionUpdateAll->setVisible(true);
+
+    auto setToolbarVisible = [this, visible](QAction* action) {
+        auto widget = ui->instanceToolBar->widgetForAction(action);
+        if (widget) {
+            widget->setVisible(visible);
+        }
+    };
+
+    setToolbarVisible(ui->actionViewSelectedInstMods);
+    setToolbarVisible(ui->actionViewSelectedInstWorlds);
+    setToolbarVisible(ui->actionViewSelectedInstScreenshots);
+    setToolbarVisible(ui->actionViewSelectedInstLogs);
+    setToolbarVisible(ui->actionUpdateAll);
 }
