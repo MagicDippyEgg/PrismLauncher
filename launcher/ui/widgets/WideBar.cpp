@@ -321,4 +321,13 @@ void WideBar::removeAction(QAction* action)
     m_entries.erase(iter);
 }
 
+void WideBar::setBarActionVisible(QAction* action, bool visible)
+{
+    auto iter = getMatching(action);
+    if (iter != m_entries.end() && iter->bar_action) {
+        iter->bar_action->setVisible(visible);
+        static_cast<ActionButton*>(widgetForAction(iter->bar_action))->actionChanged();
+    }
+}
+
 #include "WideBar.moc"

@@ -2033,16 +2033,9 @@ void MainWindow::updateManagementButtonsVisibility()
     ui->actionViewSelectedInstLogs->setVisible(true);
     ui->actionUpdateAll->setVisible(true);
 
-    auto setToolbarVisible = [this, visible](QAction* action) {
-        auto widget = ui->instanceToolBar->widgetForAction(action);
-        if (widget) {
-            widget->setVisible(visible);
-        }
-    };
-
-    setToolbarVisible(ui->actionViewSelectedInstMods);
-    setToolbarVisible(ui->actionViewSelectedInstWorlds);
-    setToolbarVisible(ui->actionViewSelectedInstScreenshots);
-    setToolbarVisible(ui->actionViewSelectedInstLogs);
-    setToolbarVisible(ui->actionUpdateAll);
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstMods, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstWorlds, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstScreenshots, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstLogs, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionUpdateAll, visible);
 }

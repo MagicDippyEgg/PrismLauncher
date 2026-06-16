@@ -39,6 +39,7 @@ class WideBar : public QToolBar {
     void setVisibilityState(QByteArray&&);
 
     void removeAction(QAction* action);
+    void setBarActionVisible(QAction* action, bool visible);
 
    private:
     struct BarEntry {
