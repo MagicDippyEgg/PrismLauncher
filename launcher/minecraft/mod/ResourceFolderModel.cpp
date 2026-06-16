@@ -307,50 +307,44 @@ bool ResourceFolderModel::setResourceEnabled(const QModelIndexList& indexes, Ena
     return succeeded;
 }
 
-static QMutex s_update_task_mutex;
 bool ResourceFolderModel::update()
 {
-    // We hold a lock here to prevent race conditions on the m_current_update_task reset.
-    QMutexLocker lock(&s_update_task_mutex);
-
     // Already updating, so we schedule a future update and return.
     if (m_current_update_task) {
         m_scheduled_update = true;
         return false;
     }
 
-    auto task_ptr = Task::Ptr(createUpdateTask());
-    m_current_update_task = task_ptr;
-    if (!m_current_update_task)
+    Task::Ptr load_task = Task::Ptr(createUpdateTask());
+    if (!load_task)
         return false;
 
+    m_current_update_task = load_task;
     QPointer<ResourceFolderModel> self(this);
 
-    connect(task_ptr.get(), &Task::succeeded, this, [self, task_ptr] {
+    connect(load_task.get(), &Task::succeeded, this, [self, load_task] {
         if (self)
-            self->onUpdateSucceeded(task_ptr.get());
+            self->onUpdateSucceeded(load_task.get());
     }, Qt::QueuedConnection);
-    connect(task_ptr.get(), &Task::failed, this, [self, task_ptr] {
+    connect(load_task.get(), &Task::failed, this, [self, load_task] {
         if (self)
-            self->onUpdateFailed(task_ptr.get());
+            self->onUpdateFailed(load_task.get());
     }, Qt::QueuedConnection);
 
     Task::Ptr preUpdate{ createPreUpdateTask() };
-    Task* top_task = nullptr;
-    SequentialTask* seq_task = nullptr;
+    Task::Ptr top_task;
 
     if (preUpdate != nullptr) {
-        seq_task = new SequentialTask("ResourceFolderModel::update");
+        auto seq_task = new SequentialTask("ResourceFolderModel::update");
         seq_task->addTask(preUpdate);
-        seq_task->addTask(m_current_update_task);
-        top_task = seq_task;
+        seq_task->addTask(load_task);
+        top_task = Task::Ptr(seq_task);
     } else {
-        top_task = task_ptr.get();
+        top_task = load_task;
     }
 
-    connect(top_task, &Task::finished, this, [self, seq_task] {
+    connect(top_task.get(), &Task::finished, this, [self, top_task] {
         if (self) {
-            QMutexLocker lock(&s_update_task_mutex);
             self->m_current_update_task.reset();
             if (self->m_scheduled_update) {
                 self->m_scheduled_update = false;
@@ -359,11 +353,9 @@ bool ResourceFolderModel::update()
                 emit self->updateFinished();
             }
         }
-        if (seq_task)
-            seq_task->deleteLater();
     }, Qt::QueuedConnection);
 
-    QThreadPool::globalInstance()->start(top_task);
+    QThreadPool::globalInstance()->start(top_task.get());
     return true;
 }
 

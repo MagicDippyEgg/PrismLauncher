@@ -132,11 +132,6 @@ class ResourceFolderModel : public QAbstractListModel {
      *  Since they can be quite expensive, and are usually done in a separate thread, if we were to destroy the model while having
      *  such tasks would introduce an undefined behavior, most likely resulting in a crash.
      */
-    /** Checks whether there's any parse tasks being done.
-     *
-     *  Since they can be quite expensive, and are usually done in a separate thread, if we were to destroy the model while having
-     *  such tasks would introduce an undefined behavior, most likely resulting in a crash.
-     */
     bool hasPendingParseTasks() const;
 
     Task* getParserTask() { return &m_resourceResolver; }
