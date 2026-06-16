@@ -186,11 +186,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         ui->instanceToolBar->insertWidgetBefore(ui->actionLaunchInstance, renameButton);
 
         auto toggleManagementAction = new QAction(tr("Toggle management buttons"), this);
-        toggleManagementAction->setIcon(QIcon::fromTheme("menu"));
+        bool initialShow = APPLICATION->settings()->get("ShowManagementButtons").toBool();
+        toggleManagementAction->setIcon(QIcon::fromTheme(initialShow ? "chevron-left" : "chevron-right"));
         toggleManagementAction->setCheckable(true);
-        toggleManagementAction->setChecked(APPLICATION->settings()->get("ShowManagementButtons").toBool());
-        connect(toggleManagementAction, &QAction::toggled, this, [this](bool checked) {
+        toggleManagementAction->setChecked(initialShow);
+        connect(toggleManagementAction, &QAction::toggled, this, [this, toggleManagementAction](bool checked) {
             APPLICATION->settings()->set("ShowManagementButtons", checked);
+            toggleManagementAction->setIcon(QIcon::fromTheme(checked ? "chevron-left" : "chevron-right"));
             updateManagementButtonsVisibility();
         });
         ui->instanceToolBar->insertAction(ui->actionViewSelectedInstMods, toggleManagementAction);

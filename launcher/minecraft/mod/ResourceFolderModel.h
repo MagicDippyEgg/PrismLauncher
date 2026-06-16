@@ -235,16 +235,16 @@ class ResourceFolderModel : public QAbstractListModel {
      *  so care must be taken in such cases.
      *  TODO: Figure out a way to express this relationship better without templated classes (Q_OBJECT macro disallows that).
      */
-    virtual void onUpdateSucceeded();
-    virtual void onUpdateFailed() {}
+    virtual void onUpdateSucceeded(Task* task);
+    virtual void onUpdateFailed(Task* task) {}
 
     /** Called when the parse task with the given ticket is successful.
      *
      *  This is just a simple reference implementation. You probably want to override it with your own logic in a subclass
      *  if the resource is complex and has more stuff to parse.
      */
-    virtual void onParseSucceeded(int ticket, QString resource_id);
-    virtual void onParseFailed(int ticket, QString resource_id);
+    virtual void onParseSucceeded(Task* task, int ticket, QString resource_id);
+    virtual void onParseFailed(Task* task, int ticket, QString resource_id);
 
    protected:
     // Represents the relationship between a column's index (represented by the list index), and it's sorting key.
