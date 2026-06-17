@@ -321,14 +321,17 @@ bool ResourceFolderModel::update()
 
     m_current_update_task = load_task;
     QPointer<ResourceFolderModel> self(this);
+    auto weakLoadTask = load_task.toWeakRef();
 
-    connect(load_task.get(), &Task::succeeded, this, [self, load_task] {
-        if (self)
-            self->onUpdateSucceeded(load_task.get());
+    connect(load_task.get(), &Task::succeeded, this, [self, weakLoadTask] {
+        auto task = weakLoadTask.lock();
+        if (self && task)
+            self->onUpdateSucceeded(task.get());
     }, Qt::QueuedConnection);
-    connect(load_task.get(), &Task::failed, this, [self, load_task] {
-        if (self)
-            self->onUpdateFailed(load_task.get());
+    connect(load_task.get(), &Task::failed, this, [self, weakLoadTask] {
+        auto task = weakLoadTask.lock();
+        if (self && task)
+            self->onUpdateFailed(task.get());
     }, Qt::QueuedConnection);
 
     Task::Ptr preUpdate{ createPreUpdateTask() };
@@ -343,7 +346,9 @@ bool ResourceFolderModel::update()
         top_task = load_task;
     }
 
-    connect(top_task.get(), &Task::finished, this, [self, top_task] {
+    auto weakTopTask = top_task.toWeakRef();
+    connect(top_task.get(), &Task::finished, this, [self, weakTopTask] {
+        auto task = weakTopTask.lock();
         if (self) {
             self->m_current_update_task.reset();
             if (self->m_scheduled_update) {
@@ -352,6 +357,9 @@ bool ResourceFolderModel::update()
             } else {
                 emit self->updateFinished();
             }
+        }
+        if (task) {
+            task->disconnect(self);
         }
     }, Qt::QueuedConnection);
 
@@ -376,19 +384,26 @@ void ResourceFolderModel::resolveResource(Resource::Ptr res)
 
     QPointer<ResourceFolderModel> self(this);
     QString res_id = res->internal_id();
+    auto weakTask = task.toWeakRef();
 
-    connect(task.get(), &Task::succeeded, this, [self, task, ticket, res_id] {
-        if (self)
-            self->onParseSucceeded(task.get(), ticket, res_id);
+    connect(task.get(), &Task::succeeded, this, [self, weakTask, ticket, res_id] {
+        auto taskPtr = weakTask.lock();
+        if (self && taskPtr)
+            self->onParseSucceeded(taskPtr.get(), ticket, res_id);
     }, Qt::QueuedConnection);
-    connect(task.get(), &Task::failed, this, [self, task, ticket, res_id] {
-        if (self)
-            self->onParseFailed(task.get(), ticket, res_id);
+    connect(task.get(), &Task::failed, this, [self, weakTask, ticket, res_id] {
+        auto taskPtr = weakTask.lock();
+        if (self && taskPtr)
+            self->onParseFailed(taskPtr.get(), ticket, res_id);
     }, Qt::QueuedConnection);
-    connect(task.get(), &Task::finished, this, [self, ticket, task] {
+    connect(task.get(), &Task::finished, this, [self, ticket, weakTask] {
+        auto taskPtr = weakTask.lock();
         if (self) {
             self->m_active_parse_tasks.remove(ticket);
             emit self->parseFinished();
+        }
+        if (taskPtr) {
+            taskPtr->disconnect(self);
         }
     }, Qt::QueuedConnection);
 
@@ -806,7 +821,12 @@ QString ResourceFolderModel::instDirPath() const
 
 void ResourceFolderModel::onParseFailed(Task* task, int ticket, QString resource_id)
 {
-    // NO-OP: We don't remove resources that failed to parse by default.
+    // We don't remove resources that failed to parse by default,
+    // but we must clear their resolving state to unblock future attempts.
+    auto res = find(resource_id);
+    if (res) {
+        res->finishResolvingFailed();
+    }
 }
 
 void ResourceFolderModel::applyUpdates(QSet<QString>& current_set, QSet<QString>& new_set, QMap<QString, Resource::Ptr>& new_resources)
