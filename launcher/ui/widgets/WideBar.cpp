@@ -39,6 +39,7 @@ class ActionButton : public QToolButton {
             setText(m_action->text());
             setIcon(m_action->icon());
             setToolTip(m_action->toolTip());
+            setHidden(!m_action->isVisible());
         }
         setFocusPolicy(Qt::NoFocus);
     }

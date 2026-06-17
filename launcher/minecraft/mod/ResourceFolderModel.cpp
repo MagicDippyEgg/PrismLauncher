@@ -1,6 +1,5 @@
 #include "ResourceFolderModel.h"
 #include <QMessageBox>
-#include <QPointer>
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -141,10 +140,7 @@ bool ResourceFolderModel::installResource(QString original_path)
             QFileInfo new_path_file_info(new_path);
             resource.setFile(new_path_file_info);
 
-            if (!m_is_watching)
-                return update();
-
-            return true;
+            return update();
         }
         case ResourceType::FOLDER: {
             if (QFile::exists(new_path)) {
@@ -160,10 +156,7 @@ bool ResourceFolderModel::installResource(QString original_path)
             QFileInfo newpathInfo(new_path);
             resource.setFile(newpathInfo);
 
-            if (!m_is_watching)
-                return update();
-
-            return true;
+            return update();
         }
         default:
             break;
@@ -334,7 +327,6 @@ bool ResourceFolderModel::update()
 
     m_current_update_task = top_task;
     QPointer<ResourceFolderModel> self(this);
-
     auto weakLoadTask = load_task.toWeakRef();
     auto weakTopTask = top_task.toWeakRef();
 
@@ -405,8 +397,9 @@ void ResourceFolderModel::resolveResource(Resource::Ptr res)
             self->m_active_parse_tasks.remove(ticket);
             emit self->parseFinished();
         }
-        // Break circular dependency
-        if (taskPtr) taskPtr->disconnect(self);
+        if (taskPtr) {
+            taskPtr->disconnect(self);
+        }
     }, Qt::QueuedConnection);
 
     m_resourceResolver.addTask(task);
