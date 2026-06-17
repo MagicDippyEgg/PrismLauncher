@@ -1,5 +1,6 @@
 #include "ResourceFolderModel.h"
 #include <QMessageBox>
+#include <QPointer>
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -319,21 +320,6 @@ bool ResourceFolderModel::update()
     if (!load_task)
         return false;
 
-    m_current_update_task = load_task;
-    QPointer<ResourceFolderModel> self(this);
-    auto weakLoadTask = load_task.toWeakRef();
-
-    connect(load_task.get(), &Task::succeeded, this, [self, weakLoadTask] {
-        auto task = weakLoadTask.lock();
-        if (self && task)
-            self->onUpdateSucceeded(task.get());
-    }, Qt::QueuedConnection);
-    connect(load_task.get(), &Task::failed, this, [self, weakLoadTask] {
-        auto task = weakLoadTask.lock();
-        if (self && task)
-            self->onUpdateFailed(task.get());
-    }, Qt::QueuedConnection);
-
     Task::Ptr preUpdate{ createPreUpdateTask() };
     Task::Ptr top_task;
 
@@ -346,9 +332,26 @@ bool ResourceFolderModel::update()
         top_task = load_task;
     }
 
+    m_current_update_task = top_task;
+    QPointer<ResourceFolderModel> self(this);
+
+    auto weakLoadTask = load_task.toWeakRef();
     auto weakTopTask = top_task.toWeakRef();
-    connect(top_task.get(), &Task::finished, this, [self, weakTopTask] {
-        auto task = weakTopTask.lock();
+
+    connect(load_task.get(), &Task::succeeded, this, [self, weakLoadTask] {
+        auto task = weakLoadTask.lock();
+        if (self && task)
+            self->onUpdateSucceeded(task.get());
+    }, Qt::QueuedConnection);
+    connect(load_task.get(), &Task::failed, this, [self, weakLoadTask] {
+        auto task = weakLoadTask.lock();
+        if (self && task)
+            self->onUpdateFailed(task.get());
+    }, Qt::QueuedConnection);
+
+    connect(top_task.get(), &Task::finished, this, [self, weakTopTask, weakLoadTask] {
+        auto topTask = weakTopTask.lock();
+        auto loadTask = weakLoadTask.lock();
         if (self) {
             self->m_current_update_task.reset();
             if (self->m_scheduled_update) {
@@ -358,9 +361,9 @@ bool ResourceFolderModel::update()
                 emit self->updateFinished();
             }
         }
-        if (task) {
-            task->disconnect(self);
-        }
+        // Break circular dependencies by disconnecting the task from this model
+        if (topTask) topTask->disconnect(self);
+        if (loadTask) loadTask->disconnect(self);
     }, Qt::QueuedConnection);
 
     QThreadPool::globalInstance()->start(top_task.get());
@@ -402,9 +405,8 @@ void ResourceFolderModel::resolveResource(Resource::Ptr res)
             self->m_active_parse_tasks.remove(ticket);
             emit self->parseFinished();
         }
-        if (taskPtr) {
-            taskPtr->disconnect(self);
-        }
+        // Break circular dependency
+        if (taskPtr) taskPtr->disconnect(self);
     }, Qt::QueuedConnection);
 
     m_resourceResolver.addTask(task);
