@@ -797,6 +797,9 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
         m_settings->registerSetting("StatusBarVisible", true);
 
+        m_settings->registerSetting("ShowLaunchRandomButton", true);
+        m_settings->registerSetting("ShowManagementButtons", true);
+
         m_settings->registerSetting("ToolbarsLocked", false);
 
         // Instance

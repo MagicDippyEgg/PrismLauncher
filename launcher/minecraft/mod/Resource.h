@@ -162,6 +162,8 @@ class Resource : public QObject {
         m_resolution_ticket = resolutionTicket;
     }
 
+    virtual void finishResolvingFailed();
+
     // Delete all files of this resource.
     auto destroy(const QDir& index_dir, bool preserve_metadata = false, bool attempt_trash = true) -> bool;
     // Delete the metadata only.

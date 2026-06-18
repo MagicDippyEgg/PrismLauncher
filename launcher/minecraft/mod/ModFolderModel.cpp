@@ -236,16 +236,14 @@ bool ModFolderModel::isValid()
     return m_dir.exists() && m_dir.isReadable();
 }
 
-void ModFolderModel::onParseSucceeded(int ticket, QString mod_id)
+void ModFolderModel::onParseSucceeded(Task* task, int ticket, QString mod_id)
 {
-    auto iter = m_active_parse_tasks.constFind(ticket);
-    if (iter == m_active_parse_tasks.constEnd())
+    if (!m_resources_index.contains(mod_id))
         return;
 
     int row = m_resources_index[mod_id];
 
-    auto parse_task = *iter;
-    auto cast_task = static_cast<LocalModParseTask*>(parse_task.get());
+    auto cast_task = static_cast<LocalModParseTask*>(task);
 
     Q_ASSERT(cast_task->token() == ticket);
 
@@ -283,50 +281,50 @@ void ModFolderModel::onParseFinished()
         });
         return found != mods.end() ? *found : nullptr;
     };
-    for (auto mod : mods) {
-        auto id = mod->mod_id();
-        for (auto dep : mod->dependencies()) {
+    for (auto mod_item : mods) {
+        auto id = mod_item->mod_id();
+        for (auto dep : mod_item->dependencies()) {
             auto d = findById(mods, dep);
             if (d) {
                 m_requires[id] << d;
-                m_requiredBy[d->mod_id()] << mod;
+                m_requiredBy[d->mod_id()] << mod_item;
             }
         }
-        if (mod->metadata()) {
-            for (auto dep : mod->metadata()->dependencies) {
+        if (mod_item->metadata()) {
+            for (auto dep : mod_item->metadata()->dependencies) {
                 if (dep.type == ModPlatform::DependencyType::REQUIRED) {
-                    auto d = findByProjectID(dep.addonId, mod->metadata()->provider);
+                    auto d = findByProjectID(dep.addonId, mod_item->metadata()->provider);
                     if (d) {
                         m_requires[id] << d;
-                        m_requiredBy[d->mod_id()] << mod;
+                        m_requiredBy[d->mod_id()] << mod_item;
                     }
                 }
             }
         }
     }
-    for (auto mod : mods) {
-        auto id = mod->mod_id();
-        if (mod->requiredByCount() != m_requiredBy[id].count() || mod->requiresCount() != m_requires[id].count()) {
-            mod->setRequiredByCount(m_requiredBy[id].count());
-            mod->setRequiresCount(m_requires[id].count());
-            int row = m_resources_index[mod->internal_id()];
+    for (auto mod_item : mods) {
+        auto id = mod_item->mod_id();
+        if (mod_item->requiredByCount() != m_requiredBy[id].count() || mod_item->requiresCount() != m_requires[id].count()) {
+            mod_item->setRequiredByCount(m_requiredBy[id].count());
+            mod_item->setRequiresCount(m_requires[id].count());
+            int row = m_resources_index[mod_item->internal_id()];
             emit dataChanged(index(row), index(row, columnCount(QModelIndex()) - 1));
         }
     }
 }
 
-QSet<Mod*> collectMods(QSet<Mod*> mods, QHash<QString, QSet<Mod*>> relation, std::set<QString>& seen, bool shouldBeEnabled)
+QSet<Mod*> collectMods(QSet<Mod*> mods_set, QHash<QString, QSet<Mod*>> relation, std::set<QString>& seen, bool shouldBeEnabled)
 {
     QSet<Mod*> affectedList = {};
     QSet<Mod*> needToCheck = {};
-    for (auto mod : mods) {
-        auto id = mod->mod_id();
+    for (auto mod_item : mods_set) {
+        auto id = mod_item->mod_id();
         if (seen.count(id) == 0) {
             seen.insert(id);
             for (auto affected : relation[id]) {
                 auto affectedId = affected->mod_id();
 
-                if (findById(mods, affectedId) == nullptr && seen.count(affectedId) == 0) {
+                if (findById(mods_set, affectedId) == nullptr && seen.count(affectedId) == 0) {
                     seen.insert(affectedId);
                     if (shouldBeEnabled != affected->enabled()) {
                         affectedList << affected;
@@ -396,11 +394,11 @@ bool ModFolderModel::setResourceEnabled(const QModelIndexList& indexes, EnableAc
             break;
         }
         case EnableAction::TOGGLE: {
-            for (auto mod : indexedMods) {
-                if (mod->enabled()) {
-                    toDisable << mod;
+            for (auto mod_item : indexedMods) {
+                if (mod_item->enabled()) {
+                    toDisable << mod_item;
                 } else {
-                    toEnable << mod;
+                    toEnable << mod_item;
                 }
             }
             break;
@@ -411,10 +409,10 @@ bool ModFolderModel::setResourceEnabled(const QModelIndexList& indexes, EnableAc
     auto requiredToDisable = collectMods(toDisable, m_requiredBy, seen, false);
 
     toDisable.removeIf([toEnable](Mod* m) { return toEnable.contains(m); });
-    auto toList = [this](QSet<Mod*> mods) {
+    auto toList = [this](QSet<Mod*> mods_to_list) {
         QModelIndexList list;
-        for (auto mod : mods) {
-            auto row = m_resources_index[mod->internal_id()];
+        for (auto mod_item : mods_to_list) {
+            auto row = m_resources_index[mod_item->internal_id()];
             list << index(row, 0);
         }
         return list;
@@ -487,27 +485,27 @@ QStringList ModFolderModel::requiredByList(QString id)
 
 bool ModFolderModel::deleteResources(const QModelIndexList& indexes)
 {
-    auto deleteInvalid = [](QSet<Mod*>& mods) {
-        for (auto it = mods.begin(); it != mods.end();) {
-            auto mod = *it;
-            // the QFileInfo::exists is used instead of mod->fileinfo().exists
+    auto deleteInvalid = [](QSet<Mod*>& mods_to_clean) {
+        for (auto it = mods_to_clean.begin(); it != mods_to_clean.end();) {
+            auto mod_item = *it;
+            // the QFileInfo::exists is used instead of mod_item->fileinfo().exists
             // because the later somehow caches that the file exists
-            if (!mod || !QFileInfo::exists(mod->fileinfo().absoluteFilePath())) {
-                it = mods.erase(it);
+            if (!mod_item || !QFileInfo::exists(mod_item->fileinfo().absoluteFilePath())) {
+                it = mods_to_clean.erase(it);
             } else {
                 ++it;
             }
         }
     };
     auto rsp = ResourceFolderModel::deleteResources(indexes);
-    for (auto mod : allMods()) {
-        auto id = mod->mod_id();
+    for (auto mod_item : allMods()) {
+        auto id = mod_item->mod_id();
         deleteInvalid(m_requiredBy[id]);
         deleteInvalid(m_requires[id]);
-        if (mod->requiredByCount() != m_requiredBy[id].count() || mod->requiresCount() != m_requires[id].count()) {
-            mod->setRequiredByCount(m_requiredBy[id].count());
-            mod->setRequiresCount(m_requires[id].count());
-            int row = m_resources_index[mod->internal_id()];
+        if (mod_item->requiredByCount() != m_requiredBy[id].count() || mod_item->requiresCount() != m_requires[id].count()) {
+            mod_item->setRequiredByCount(m_requiredBy[id].count());
+            mod_item->setRequiresCount(m_requires[id].count());
+            int row = m_resources_index[mod_item->internal_id()];
             emit dataChanged(index(row, RequiresColumn), index(row, RequiredByColumn));
         }
     }

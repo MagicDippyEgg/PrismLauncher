@@ -42,16 +42,7 @@ runs:
     - name: Fetch codesign certificate
       shell: bash
       run: |
-        echo '${{ inputs.apple-codesign-cert }}' | base64 --decode > codesign.p12
-        if [ -n '${{ inputs.apple-codesign-id }}' ]; then
-          security create-keychain -p '${{ inputs.apple-codesign-password }}' build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p '${{ inputs.apple-codesign-password }}' build.keychain
-          security import codesign.p12 -k build.keychain -P '${{ inputs.apple-codesign-password }}' -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k '${{ inputs.apple-codesign-password }}' build.keychain
-        else
-          echo ":warning: Using ad-hoc code signing for macOS, as certificate was not present." >> $GITHUB_STEP_SUMMARY
-        fi
+        echo ":warning: Using ad-hoc code signing for macOS, as requested." >> $GITHUB_STEP_SUMMARY
 
     - name: Package
       shell: bash
@@ -64,13 +55,8 @@ runs:
         cd ${{ env.INSTALL_DIR }}
         chmod +x "PrismLauncher.app/Contents/MacOS/prismlauncher"
 
-        if [ -n '${{ inputs.apple-codesign-id }}' ]; then
-          APPLE_CODESIGN_ID='${{ inputs.apple-codesign-id }}'
-          ENTITLEMENTS_FILE='../program_info/App.entitlements'
-        else
-          APPLE_CODESIGN_ID='-'
-          ENTITLEMENTS_FILE='../program_info/AdhocSignedApp.entitlements'
-        fi
+        APPLE_CODESIGN_ID='-'
+        ENTITLEMENTS_FILE='../program_info/AdhocSignedApp.entitlements'
 
         sudo codesign --sign "$APPLE_CODESIGN_ID" --deep --force --entitlements "$ENTITLEMENTS_FILE" --options runtime "PrismLauncher.app/Contents/MacOS/prismlauncher"
         mv "PrismLauncher.app" "Prism Launcher.app"
@@ -81,19 +67,7 @@ runs:
         INSTALL_DIR: install
       run: |
         cd ${{ env.INSTALL_DIR }}
-
-        if [ -n '${{ inputs.apple-notarize-password }}' ]; then
-          ditto -c -k --sequesterRsrc --keepParent "Prism Launcher.app" ../PrismLauncher.zip
-          xcrun notarytool submit ../PrismLauncher.zip \
-            --wait --progress \
-            --apple-id '${{ inputs.apple-notarize-apple-id }}' \
-            --team-id '${{ inputs.apple-notarize-team-id }}' \
-            --password '${{ inputs.apple-notarize-password }}'
-
-          xcrun stapler staple "Prism Launcher.app"
-        else
-          echo ":warning: Skipping notarization as credentials are not present." >> $GITHUB_STEP_SUMMARY
-        fi
+        echo ":warning: Skipping notarization as requested." >> $GITHUB_STEP_SUMMARY
         ditto -c -k --sequesterRsrc --keepParent "Prism Launcher.app" ../PrismLauncher.zip
 
     - name: Create DMG
@@ -135,13 +109,13 @@ runs:
         fi
 
     - name: Upload binary tarball
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v4
       with:
         name: PrismLauncher-${{ inputs.artifact-name }}-${{ inputs.version }}-${{ inputs.build-type }}
         path: PrismLauncher.zip
 
     - name: Upload disk image
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v4
       with:
         name: PrismLauncher-${{ inputs.artifact-name }}-${{ inputs.version }}-${{ inputs.build-type }}.dmg
         path: PrismLauncher.dmg

@@ -23,14 +23,15 @@ jobs:
 
     steps:
       - name: Generate token
+        if: ${{ vars.PULL_REQUEST_APP_ID != '' && secrets.PULL_REQUEST_APP_PRIVATE_KEY != '' }}
         id: generate-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v5
         with:
           app-id: ${{ vars.PULL_REQUEST_APP_ID }}
           private-key: ${{ secrets.PULL_REQUEST_APP_PRIVATE_KEY }}
 
       - name: Setup From Dispatch Event
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && steps.generate-token.outputs.token != ''
         id: dispatch_event_setup
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -110,7 +111,7 @@ jobs:
 
       - name: Collect Blocked PR Data
         id: blocking_data
-        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0
+        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0 && steps.generate-token.outputs.token != ''
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BLOCKING_PRS: ${{ steps.pr_ids.outputs.prs }}
@@ -152,7 +153,7 @@ jobs:
 
       - name: Add 'blocked' Label if Missing
         id: label_blocked
-        if: "(fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0) && !contains(fromJSON(env.JOB_DATA).prLabels, 'status: blocked') && !fromJSON(steps.blocking_data.outputs.all_merged)"
+        if: "(fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0) && !contains(fromJSON(env.JOB_DATA).prLabels, 'status: blocked') && !fromJSON(steps.blocking_data.outputs.all_merged) && steps.generate-token.outputs.token != ''"
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -161,7 +162,7 @@ jobs:
 
       - name: Remove 'blocked' Label if All Dependencies Are Merged
         id: unlabel_blocked
-        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0 && fromJSON(steps.blocking_data.outputs.all_merged)
+        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0 && fromJSON(steps.blocking_data.outputs.all_merged) && steps.generate-token.outputs.token != ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -170,7 +171,7 @@ jobs:
 
       - name: Apply 'blocking' Label to Unmerged Dependencies
         id: label_blocking
-        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0
+        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0 && steps.generate-token.outputs.token != ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -182,7 +183,7 @@ jobs:
 
       - name: Apply Blocking PR Status Check
         id: blocked_check
-        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0
+        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0 && steps.generate-token.outputs.token != ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -244,7 +245,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: 💬 PR Comment
-        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0
+        if: fromJSON(steps.pr_ids.outputs.prs).numBlocking > 0 && steps.generate-token.outputs.token != ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}

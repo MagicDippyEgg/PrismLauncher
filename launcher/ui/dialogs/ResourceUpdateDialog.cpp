@@ -39,7 +39,7 @@ std::vector<Version> mcVersions(BaseInstance* inst)
 ResourceUpdateDialog::ResourceUpdateDialog(QWidget* parent,
                                            BaseInstance* instance,
                                            ResourceFolderModel* resourceModel,
-                                           QList<Resource*>& searchFor,
+                                           const QList<Resource*>& searchFor,
                                            bool includeDeps,
                                            QList<ModPlatform::ModLoaderType> loadersList)
     : ReviewMessageBox(parent, tr("Confirm resources to update"), "")

@@ -55,11 +55,14 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QButtonGroup>
+#include <QtGui/QClipboard>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QKeyEvent>
+#include <QRandomGenerator>
+#include <cmath>
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
@@ -97,6 +100,7 @@
 #include "ui/dialogs/AboutDialog.h"
 #include "ui/dialogs/CopyInstanceDialog.h"
 #include "ui/dialogs/CreateShortcutDialog.h"
+#include "ui/dialogs/ResourceUpdateDialog.h"
 #include "ui/dialogs/CustomMessageBox.h"
 #include "ui/dialogs/ExportInstanceDialog.h"
 #include "ui/dialogs/ExportPackDialog.h"
@@ -133,6 +137,10 @@
 #include "Json.h"
 
 #include "MMCTime.h"
+#include "meta/Index.h"
+#include "meta/VersionList.h"
+#include "tasks/ConcurrentTask.h"
+#include "tasks/LambdaTask.h"
 
 namespace {
 QString profileInUseFilter(const QString& profile, bool used)
@@ -177,7 +185,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(renameButton, &QToolButton::clicked, this, &MainWindow::on_actionRenameInstance_triggered);
         ui->instanceToolBar->insertWidgetBefore(ui->actionLaunchInstance, renameButton);
 
-        ui->instanceToolBar->insertSeparator(ui->actionLaunchInstance);
+        auto toggleManagementAction = new QAction(tr("Toggle management buttons"), this);
+        bool initialShow = APPLICATION->settings()->get("ShowManagementButtons").toBool();
+        toggleManagementAction->setIcon(QIcon::fromTheme(initialShow ? "chevron-left" : "chevron-right"));
+        toggleManagementAction->setCheckable(true);
+        toggleManagementAction->setChecked(initialShow);
+        connect(toggleManagementAction, &QAction::toggled, this, [this, toggleManagementAction](bool checked) {
+            APPLICATION->settings()->set("ShowManagementButtons", checked);
+            toggleManagementAction->setIcon(QIcon::fromTheme(checked ? "chevron-left" : "chevron-right"));
+            updateManagementButtonsVisibility();
+        });
+        ui->instanceToolBar->insertAction(ui->actionViewSelectedInstMods, toggleManagementAction);
+        updateManagementButtonsVisibility();
 
         // restore the instance toolbar settings
         auto const setting_name = QString("WideBarVisibility_%1").arg(ui->instanceToolBar->objectName());
@@ -190,6 +209,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         ui->instanceToolBar->addContextMenuAction(ui->actionToggleStatusBar);
         ui->instanceToolBar->addContextMenuAction(ui->actionLockToolbars);
     }
+
 
     // set the menu for the folders help, accounts, and export tool buttons
     {
@@ -250,6 +270,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     updateThemeMenu();
     updateMainToolBar();
+    ui->actionLaunchRandom->setVisible(APPLICATION->settings()->get("ShowLaunchRandomButton").toBool());
     // OSX magic.
     setUnifiedTitleAndToolBarOnMac(true);
 
@@ -465,6 +486,8 @@ void MainWindow::retranslateUi()
     changeIconButton->setToolTip(ui->actionChangeInstIcon->toolTip());
     renameButton->setToolTip(ui->actionRenameInstance->toolTip());
 
+    ui->actionUpdateAll->setToolTip(ui->actionUpdateAll->toolTip());
+
     // replace the %1 with the launcher display name in some actions
     if (helpMenuButton->toolTip().contains("%1"))
         helpMenuButton->setToolTip(helpMenuButton->toolTip().arg(BuildConfig.LAUNCHER_DISPLAYNAME));
@@ -504,11 +527,13 @@ void MainWindow::lockToolbars(bool state)
 
 void MainWindow::konamiTriggered()
 {
-    QString gradient =
-        " stop:0 rgba(125, 0, 0, 255), stop:0.166 rgba(125, 125, 0, 255), stop:0.333 rgba(0, 125, 0, 255), stop:0.5 rgba(0, 125, 125, "
-        "255), stop:0.666 rgba(0, 0, 125, 255), stop:0.833 rgba(125, 0, 125, 255), stop:1 rgba(125, 0, 0, 255));";
-    QString stylesheet = "background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0," + gradient;
-    if (ui->mainToolBar->styleSheet() == stylesheet) {
+    if (!m_secretTimer) {
+        m_secretTimer = new QTimer(this);
+        connect(m_secretTimer, &QTimer::timeout, this, &MainWindow::secretAnimationTick);
+    }
+
+    if (m_secretTimer->isActive()) {
+        m_secretTimer->stop();
         ui->mainToolBar->setStyleSheet("");
         ui->instanceToolBar->setStyleSheet("");
         ui->centralWidget->setStyleSheet("");
@@ -516,13 +541,34 @@ void MainWindow::konamiTriggered()
         ui->statusBar->setStyleSheet("");
         qDebug() << "Super Secret Mode DEACTIVATED!";
     } else {
-        ui->mainToolBar->setStyleSheet(stylesheet);
-        ui->instanceToolBar->setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1," + gradient);
-        ui->centralWidget->setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1," + gradient);
-        ui->newsToolBar->setStyleSheet(stylesheet);
-        ui->statusBar->setStyleSheet(stylesheet);
+        m_secretTimer->start(50);
         qDebug() << "Super Secret Mode ACTIVATED!";
     }
+}
+
+void MainWindow::secretAnimationTick()
+{
+    m_secretAngle = (m_secretAngle + 5) % 360;
+    const double pi = 3.14159265358979323846;
+    double rad = m_secretAngle * pi / 180.0;
+    double x2 = 0.5 + 0.5 * std::cos(rad);
+    double y2 = 0.5 + 0.5 * std::sin(rad);
+    double x1 = 1.0 - x2;
+    double y1 = 1.0 - y2;
+
+    QString gradient =
+        " stop:0 rgba(255, 0, 0, 255), stop:0.166 rgba(255, 255, 0, 255), stop:0.333 rgba(0, 255, 0, 255), "
+        "stop:0.5 rgba(0, 255, 255, 255), stop:0.666 rgba(0, 0, 255, 255), stop:0.833 rgba(255, 0, 255, 255), "
+        "stop:1 rgba(255, 0, 0, 255));";
+
+    QString stylesheet =
+        QString("background-color: qlineargradient(spread:pad, x1:%1, y1:%2, x2:%3, y2:%4,").arg(x1).arg(y1).arg(x2).arg(y2) + gradient;
+
+    ui->mainToolBar->setStyleSheet(stylesheet);
+    ui->instanceToolBar->setStyleSheet(stylesheet);
+    ui->centralWidget->setStyleSheet(stylesheet);
+    ui->newsToolBar->setStyleSheet(stylesheet);
+    ui->statusBar->setStyleSheet(stylesheet);
 }
 
 void MainWindow::showInstanceContextMenu(const QPoint& pos)
@@ -542,6 +588,12 @@ void MainWindow::showInstanceContextMenu(const QPoint& pos)
         actions.removeLast();
         actions.removeLast();
 
+        actions.prepend(ui->actionCopyInstanceId);
+        actions.prepend(ui->actionUpdateAll);
+        actions.prepend(ui->actionViewSelectedInstLogs);
+        actions.prepend(ui->actionViewSelectedInstScreenshots);
+        actions.prepend(ui->actionViewSelectedInstWorlds);
+        actions.prepend(ui->actionViewSelectedInstMods);
         actions.prepend(ui->actionChangeInstIcon);
         actions.prepend(ui->actionRenameInstance);
 
@@ -1380,6 +1432,7 @@ void MainWindow::globalSettingsClosed()
     proxymodel->invalidate();
     proxymodel->sort(0);
     updateMainToolBar();
+    ui->actionLaunchRandom->setVisible(APPLICATION->settings()->get("ShowLaunchRandomButton").toBool());
     updateLaunchButton();
     updateThemeMenu();
     updateStatusCenter();
@@ -1574,6 +1627,184 @@ void MainWindow::on_actionViewSelectedInstFolder_triggered()
     if (m_selectedInstance) {
         QString str = m_selectedInstance->instanceRoot();
         DesktopServices::openPath(QFileInfo(str));
+    }
+}
+
+void MainWindow::on_actionViewSelectedInstScreenshots_triggered()
+{
+    if (m_selectedInstance) {
+        QString str = FS::PathCombine(m_selectedInstance->gameRoot(), "screenshots");
+        DesktopServices::openPath(str, true);
+    }
+}
+
+void MainWindow::on_actionViewSelectedInstWorlds_triggered()
+{
+    if (m_selectedInstance) {
+        auto mcInstance = dynamic_cast<MinecraftInstance*>(m_selectedInstance);
+        if (mcInstance) {
+            DesktopServices::openPath(mcInstance->worldDir(), true);
+        }
+    }
+}
+
+void MainWindow::on_actionViewSelectedInstLogs_triggered()
+{
+    if (m_selectedInstance) {
+        QString str = FS::PathCombine(m_selectedInstance->instanceRoot(), "logs");
+        DesktopServices::openPath(str, true);
+    }
+}
+
+void MainWindow::on_actionViewSelectedInstMods_triggered()
+{
+    if (m_selectedInstance) {
+        QString str = m_selectedInstance->modsRoot();
+        DesktopServices::openPath(str, true);
+    }
+}
+
+void MainWindow::on_actionUpdateAll_triggered()
+{
+    if (!m_selectedInstance)
+        return;
+
+    auto confirmResponse = CustomMessageBox::selectable(
+                               this, tr("Update Instance?"),
+                               tr("Are you sure you want to update this instance?"), QMessageBox::Question,
+                               QMessageBox::Yes | QMessageBox::No)
+                               ->exec();
+    if (confirmResponse != QMessageBox::Yes) {
+        return;
+    }
+
+    auto mcInstance = dynamic_cast<MinecraftInstance*>(m_selectedInstance);
+    if (!mcInstance)
+        return;
+
+    if (!APPLICATION->accounts()->anyAccountIsValid()) {
+        CustomMessageBox::selectable(this, tr("Error"),
+                                     tr("Cannot update instances unless you have at least one account added.\nPlease add a Microsoft "
+                                        "account."),
+                                     QMessageBox::Warning)
+            ->show();
+        return;
+    }
+
+    auto profile = mcInstance->getPackProfile();
+    auto mcComponent = profile->getComponent("net.minecraft");
+    if (!mcComponent)
+        return;
+
+    auto mcList = mcComponent->getVersionList();
+    if (!mcList)
+        return;
+
+    // Fetch latest Minecraft release
+    auto latestMc = mcList->getRecommended();
+    if (!latestMc) {
+        // Try to load list if not loaded
+        auto loadTask = mcList->getLoadTask(true);
+        ProgressDialog tDialog(this);
+        if (tDialog.execWithTask(loadTask.get()) != QDialog::Accepted)
+            return;
+        latestMc = mcList->getRecommended();
+    }
+
+    if (latestMc) {
+        QString latestMcVer = latestMc->descriptor();
+        QString currentMcVer = mcComponent->getVersion();
+
+        if (latestMcVer != currentMcVer) {
+            profile->setComponentVersion("net.minecraft", latestMcVer, true);
+        }
+    }
+
+    // Update mod loaders
+    QStringList loaders = { "net.minecraftforge", "net.fabricmc.fabric-loader", "org.quiltmc.quilt-loader", "net.neoforged" };
+    for (const auto& uid : loaders) {
+        auto comp = profile->getComponent(uid);
+        if (comp) {
+            auto list = comp->getVersionList();
+            if (list) {
+                auto latestLoader = list->getRecommendedForParent("net.minecraft", profile->getComponentVersion("net.minecraft"));
+                if (latestLoader) {
+                    profile->setComponentVersion(uid, latestLoader->descriptor());
+                }
+            }
+        }
+    }
+
+    // Resolve dependencies
+    profile->resolve(Net::Mode::Online);
+    auto resolveTask = profile->getCurrentTask();
+    if (resolveTask) {
+        ProgressDialog tDialog(this);
+        tDialog.execWithTask(resolveTask.get());
+    }
+
+    // Finally, check for mod updates
+    auto modsModel = mcInstance->loaderModList();
+    if (modsModel) {
+        // Force a re-scan of the mod folder to ensure we have the latest local state
+        modsModel->update();
+
+        // Wait for the update task itself!
+        if (auto updateTask = modsModel->getCurrentTask()) {
+            ProgressDialog tDialog(this);
+            tDialog.execWithTask(updateTask.get());
+        }
+
+        // If there are pending parse tasks, wait for them to finish
+        if (modsModel->hasPendingParseTasks()) {
+            ProgressDialog tDialog(this);
+            tDialog.execWithTask(modsModel->getParserTask());
+        }
+
+        QList<Resource*> modsList = modsModel->allResources();
+        ResourceUpdateDialog updateDialog(this, mcInstance, modsModel, modsList, true, profile->getModLoadersList());
+
+        // Check for updates (this internally uses ProgressDialog and must be on main thread)
+        updateDialog.checkCandidates();
+
+        if (!updateDialog.noUpdates()) {
+            if (updateDialog.exec() != 0) {
+                auto tasks = makeShared<ConcurrentTask>("Download Mods", APPLICATION->settings()->get("NumberOfConcurrentDownloads").toInt());
+                for (const auto& task : updateDialog.getTasks()) {
+                    tasks->addTask(task);
+                }
+                ProgressDialog loadDialog(this);
+                loadDialog.setSkipButton(true, tr("Abort"));
+                loadDialog.execWithTask(tasks.get());
+
+                // Force mod parsing to refresh metadata for the new Minecraft version
+                modsModel->update();
+                if (modsModel->hasPendingParseTasks()) {
+                    ProgressDialog postUpdateDialog(this);
+                    postUpdateDialog.execWithTask(modsModel->getParserTask());
+                }
+            }
+        }
+    }
+}
+
+void MainWindow::on_actionLaunchRandom_triggered()
+{
+    int count = APPLICATION->instances()->count();
+    if (count == 0)
+        return;
+
+    int index = QRandomGenerator::global()->bounded(count);
+    BaseInstance* inst = APPLICATION->instances()->at(index);
+    if (inst) {
+        activateInstance(inst);
+    }
+}
+
+void MainWindow::on_actionCopyInstanceId_triggered()
+{
+    if (m_selectedInstance) {
+        QApplication::clipboard()->setText(m_selectedInstance->id());
     }
 }
 
@@ -1773,9 +2004,15 @@ void MainWindow::setInstanceActionsEnabled(bool enabled)
     ui->actionEditInstance->setEnabled(enabled);
     ui->actionChangeInstGroup->setEnabled(enabled);
     ui->actionViewSelectedInstFolder->setEnabled(enabled);
+    ui->actionViewSelectedInstMods->setEnabled(enabled);
+    ui->actionViewSelectedInstWorlds->setEnabled(enabled);
+    ui->actionViewSelectedInstScreenshots->setEnabled(enabled);
+    ui->actionViewSelectedInstLogs->setEnabled(enabled);
+    ui->actionUpdateAll->setEnabled(enabled);
     ui->actionExportInstance->setEnabled(enabled);
     ui->actionDeleteInstance->setEnabled(enabled);
     ui->actionCopyInstance->setEnabled(enabled);
+    ui->actionCopyInstanceId->setEnabled(enabled);
     ui->actionCreateInstanceShortcut->setEnabled(enabled);
 }
 
@@ -1783,4 +2020,22 @@ void MainWindow::refreshCurrentInstance()
 {
     auto current = view->selectionModel()->currentIndex();
     instanceChanged(current, current);
+}
+
+void MainWindow::updateManagementButtonsVisibility()
+{
+    bool visible = APPLICATION->settings()->get("ShowManagementButtons").toBool();
+
+    // Management actions should always be available in context menus
+    ui->actionViewSelectedInstMods->setVisible(true);
+    ui->actionViewSelectedInstWorlds->setVisible(true);
+    ui->actionViewSelectedInstScreenshots->setVisible(true);
+    ui->actionViewSelectedInstLogs->setVisible(true);
+    ui->actionUpdateAll->setVisible(true);
+
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstMods, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstWorlds, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstScreenshots, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionViewSelectedInstLogs, visible);
+    ui->instanceToolBar->setBarActionVisible(ui->actionUpdateAll, visible);
 }

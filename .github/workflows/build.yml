@@ -34,8 +34,6 @@ jobs:
 
     permissions:
       contents: read
-      # Required for Azure Trusted Signing
-      id-token: write
       # Required for vcpkg binary cache
       packages: write
 
@@ -104,7 +102,7 @@ jobs:
       ##
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           submodules: true
 

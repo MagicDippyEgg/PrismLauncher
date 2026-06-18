@@ -203,6 +203,12 @@ bool Resource::applyFilter(QRegularExpression filter) const
     return filter.match(name()).hasMatch();
 }
 
+void Resource::finishResolvingFailed()
+{
+    m_is_resolving = false;
+    m_is_resolved = false;
+}
+
 bool Resource::enable(EnableAction action)
 {
     if (m_type == ResourceType::UNKNOWN || m_type == ResourceType::FOLDER)

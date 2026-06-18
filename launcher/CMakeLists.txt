@@ -406,6 +406,7 @@ set(TASKS_SOURCES
     tasks/SequentialTask.cpp
     tasks/MultipleOptionsTask.h
     tasks/MultipleOptionsTask.cpp
+    tasks/LambdaTask.h
 )
 
 set(SETTINGS_SOURCES
@@ -868,8 +869,12 @@ SET(LAUNCHER_SOURCES
     ui/themes/BrightTheme.h
     ui/themes/CustomTheme.cpp
     ui/themes/CustomTheme.h
+    ui/themes/CyberpunkTheme.cpp
+    ui/themes/CyberpunkTheme.h
     ui/themes/DarkTheme.cpp
     ui/themes/DarkTheme.h
+    ui/themes/FunThemes.cpp
+    ui/themes/FunThemes.h
     ui/themes/ITheme.cpp
     ui/themes/ITheme.h
     ui/themes/HintOverrideProxyStyle.cpp

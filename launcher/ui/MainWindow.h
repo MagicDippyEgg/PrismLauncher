@@ -124,6 +124,20 @@ class MainWindow : public QMainWindow {
 
     void on_actionViewSelectedInstFolder_triggered();
 
+    void on_actionViewSelectedInstScreenshots_triggered();
+
+    void on_actionViewSelectedInstMods_triggered();
+
+    void on_actionViewSelectedInstLogs_triggered();
+
+    void on_actionViewSelectedInstWorlds_triggered();
+
+    void on_actionUpdateAll_triggered();
+
+    void on_actionLaunchRandom_triggered();
+
+    void on_actionCopyInstanceId_triggered();
+
     void refreshInstances();
 
     void checkForUpdates();
@@ -210,11 +224,15 @@ class MainWindow : public QMainWindow {
 
     void lockToolbars(bool);
 
+    void secretAnimationTick();
+
 #ifndef Q_OS_MAC
     void keyReleaseEvent(QKeyEvent* event) override;
 #endif
 
     void refreshCurrentInstance();
+
+    void updateManagementButtonsVisibility();
 
    private:
     void retranslateUi();
@@ -242,6 +260,8 @@ class MainWindow : public QMainWindow {
     LabeledToolButton* renameButton = nullptr;
     QToolButton* helpMenuButton = nullptr;
     KonamiCode* secretEventFilter = nullptr;
+    QTimer* m_secretTimer = nullptr;
+    int m_secretAngle = 0;
 
     std::shared_ptr<Setting> instanceToolbarSetting = nullptr;
 

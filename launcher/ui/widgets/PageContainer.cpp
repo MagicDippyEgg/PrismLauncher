@@ -217,6 +217,14 @@ void PageContainer::addButtons(QLayout* buttons)
 void PageContainer::useSidebarStyle(bool sidebar)
 {
     m_pageList->setProperty("_kde_side_panel_view", sidebar);
+    if (sidebar) {
+        m_pageList->setStyleSheet("QListView { border: none; background: transparent; } "
+                                 "QListView::item { padding: 10px; border-radius: 4px; border-left: 3px solid transparent; } "
+                                 "QListView::item:selected { background: rgba(44, 114, 199, 30); color: #2c72c7; border-left: 3px solid #2c72c7; } "
+                                 "QListView::item:hover:!selected { background: rgba(128, 128, 128, 20); }");
+    } else {
+        m_pageList->setStyleSheet({});
+    }
 }
 
 void PageContainer::showPage(int row)

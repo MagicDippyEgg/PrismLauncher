@@ -60,7 +60,7 @@ PrismExternalUpdater::PrismExternalUpdater(QWidget* parent, const QString& appDi
     auto settingsFile = priv->dataDir.absoluteFilePath("prismlauncher_update.cfg");
     priv->settings = std::make_unique<QSettings>(settingsFile, QSettings::Format::IniFormat);
     priv->allowBeta = priv->settings->value("allow_beta", false).toBool();
-    priv->autoCheck = priv->settings->value("auto_check", true).toBool();
+    priv->autoCheck = priv->settings->value("auto_check", false).toBool();
     bool intervalOk = false;
     // default once per day
     priv->updateInterval = priv->settings->value("update_interval", 86400).toInt(&intervalOk);

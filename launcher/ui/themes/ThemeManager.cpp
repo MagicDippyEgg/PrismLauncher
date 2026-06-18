@@ -29,7 +29,9 @@
 #include "ui/themes/BrightTheme.h"
 #include "ui/themes/CatPack.h"
 #include "ui/themes/CustomTheme.h"
+#include "ui/themes/CyberpunkTheme.h"
 #include "ui/themes/DarkTheme.h"
+#include "ui/themes/FunThemes.h"
 #include "ui/themes/SystemTheme.h"
 
 #include "Application.h"
@@ -138,6 +140,11 @@ void ThemeManager::initializeWidgets()
     auto darkThemeId = addTheme(std::make_unique<DarkTheme>());
     themeDebugLog() << "Loading Built-in Theme:" << darkThemeId;
     themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<BrightTheme>());
+    themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<CyberpunkTheme>());
+    themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<MidnightTheme>());
+    themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<MatrixTheme>());
+    themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<MinecraftTheme>());
+    themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<PrideTheme>());
 
     themeDebugLog() << "<> Initializing System Widget Themes";
     QStringList styles = QStyleFactory::keys();

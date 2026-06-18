@@ -44,6 +44,8 @@ ResourceFolderModel::ResourceFolderModel(const QDir& dir, BaseInstance* instance
     });
     if (APPLICATION_DYN) {  // in tests the application macro doesn't work
         m_resourceResolver.setMaxConcurrent(APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt());
+    } else {
+        m_resourceResolver.setMaxConcurrent(4);
     }
 }
 
@@ -138,10 +140,7 @@ bool ResourceFolderModel::installResource(QString original_path)
             QFileInfo new_path_file_info(new_path);
             resource.setFile(new_path_file_info);
 
-            if (!m_is_watching)
-                return update();
-
-            return true;
+            return update();
         }
         case ResourceType::FOLDER: {
             if (QFile::exists(new_path)) {
@@ -157,10 +156,7 @@ bool ResourceFolderModel::installResource(QString original_path)
             QFileInfo newpathInfo(new_path);
             resource.setFile(newpathInfo);
 
-            if (!m_is_watching)
-                return update();
-
-            return true;
+            return update();
         }
         default:
             break;
@@ -305,53 +301,64 @@ bool ResourceFolderModel::setResourceEnabled(const QModelIndexList& indexes, Ena
     return succeeded;
 }
 
-static QMutex s_update_task_mutex;
 bool ResourceFolderModel::update()
 {
-    // We hold a lock here to prevent race conditions on the m_current_update_task reset.
-    QMutexLocker lock(&s_update_task_mutex);
-
     // Already updating, so we schedule a future update and return.
     if (m_current_update_task) {
         m_scheduled_update = true;
         return false;
     }
 
-    m_current_update_task.reset(createUpdateTask());
-    if (!m_current_update_task)
+    Task::Ptr load_task = Task::Ptr(createUpdateTask());
+    if (!load_task)
         return false;
 
-    connect(m_current_update_task.get(), &Task::succeeded, this, &ResourceFolderModel::onUpdateSucceeded,
-            Qt::ConnectionType::QueuedConnection);
-    connect(m_current_update_task.get(), &Task::failed, this, &ResourceFolderModel::onUpdateFailed, Qt::ConnectionType::QueuedConnection);
-    connect(
-        m_current_update_task.get(), &Task::finished, this,
-        [this] {
-            m_current_update_task.reset();
-            if (m_scheduled_update) {
-                m_scheduled_update = false;
-                update();
-            } else {
-                emit updateFinished();
-            }
-        },
-        Qt::ConnectionType::QueuedConnection);
-
     Task::Ptr preUpdate{ createPreUpdateTask() };
+    Task::Ptr top_task;
 
     if (preUpdate != nullptr) {
-        auto task = new SequentialTask("ResourceFolderModel::update");
-
-        task->addTask(preUpdate);
-        task->addTask(m_current_update_task);
-
-        connect(task, &Task::finished, [task] { task->deleteLater(); });
-
-        QThreadPool::globalInstance()->start(task);
+        auto seq_task = new SequentialTask("ResourceFolderModel::update");
+        seq_task->addTask(preUpdate);
+        seq_task->addTask(load_task);
+        top_task = Task::Ptr(seq_task);
     } else {
-        QThreadPool::globalInstance()->start(m_current_update_task.get());
+        top_task = load_task;
     }
 
+    m_current_update_task = top_task;
+    QPointer<ResourceFolderModel> self(this);
+    auto weakLoadTask = load_task.toWeakRef();
+    auto weakTopTask = top_task.toWeakRef();
+
+    connect(load_task.get(), &Task::succeeded, this, [self, weakLoadTask] {
+        auto task = weakLoadTask.lock();
+        if (self && task)
+            self->onUpdateSucceeded(task.get());
+    }, Qt::QueuedConnection);
+    connect(load_task.get(), &Task::failed, this, [self, weakLoadTask] {
+        auto task = weakLoadTask.lock();
+        if (self && task)
+            self->onUpdateFailed(task.get());
+    }, Qt::QueuedConnection);
+
+    connect(top_task.get(), &Task::finished, this, [self, weakTopTask, weakLoadTask] {
+        auto topTask = weakTopTask.lock();
+        auto loadTask = weakLoadTask.lock();
+        if (self) {
+            self->m_current_update_task.reset();
+            if (self->m_scheduled_update) {
+                self->m_scheduled_update = false;
+                self->update();
+            } else {
+                emit self->updateFinished();
+            }
+        }
+        // Break circular dependencies by disconnecting the task from this model
+        if (topTask) topTask->disconnect(self);
+        if (loadTask) loadTask->disconnect(self);
+    }, Qt::QueuedConnection);
+
+    QThreadPool::globalInstance()->start(top_task.get());
     return true;
 }
 
@@ -370,19 +377,30 @@ void ResourceFolderModel::resolveResource(Resource::Ptr res)
     res->setResolving(true, ticket);
     m_active_parse_tasks.insert(ticket, task);
 
-    connect(
-        task.get(), &Task::succeeded, this, [this, ticket, res] { onParseSucceeded(ticket, res->internal_id()); },
-        Qt::ConnectionType::QueuedConnection);
-    connect(
-        task.get(), &Task::failed, this, [this, ticket, res] { onParseFailed(ticket, res->internal_id()); },
-        Qt::ConnectionType::QueuedConnection);
-    connect(
-        task.get(), &Task::finished, this,
-        [this, ticket] {
-            m_active_parse_tasks.remove(ticket);
-            emit parseFinished();
-        },
-        Qt::ConnectionType::QueuedConnection);
+    QPointer<ResourceFolderModel> self(this);
+    QString res_id = res->internal_id();
+    auto weakTask = task.toWeakRef();
+
+    connect(task.get(), &Task::succeeded, this, [self, weakTask, ticket, res_id] {
+        auto taskPtr = weakTask.lock();
+        if (self && taskPtr)
+            self->onParseSucceeded(taskPtr.get(), ticket, res_id);
+    }, Qt::QueuedConnection);
+    connect(task.get(), &Task::failed, this, [self, weakTask, ticket, res_id] {
+        auto taskPtr = weakTask.lock();
+        if (self && taskPtr)
+            self->onParseFailed(taskPtr.get(), ticket, res_id);
+    }, Qt::QueuedConnection);
+    connect(task.get(), &Task::finished, this, [self, ticket, weakTask] {
+        auto taskPtr = weakTask.lock();
+        if (self) {
+            self->m_active_parse_tasks.remove(ticket);
+            emit self->parseFinished();
+        }
+        if (taskPtr) {
+            taskPtr->disconnect(self);
+        }
+    }, Qt::QueuedConnection);
 
     m_resourceResolver.addTask(task);
 
@@ -392,9 +410,9 @@ void ResourceFolderModel::resolveResource(Resource::Ptr res)
     }
 }
 
-void ResourceFolderModel::onUpdateSucceeded()
+void ResourceFolderModel::onUpdateSucceeded(Task* task)
 {
-    auto update_results = static_cast<ResourceFolderLoadTask*>(m_current_update_task.get())->result();
+    auto update_results = static_cast<ResourceFolderLoadTask*>(task)->result();
 
     auto& new_resources = update_results->resources;
 
@@ -407,10 +425,9 @@ void ResourceFolderModel::onUpdateSucceeded()
     applyUpdates(current_set, new_set, new_resources);
 }
 
-void ResourceFolderModel::onParseSucceeded(int ticket, QString resource_id)
+void ResourceFolderModel::onParseSucceeded(Task* task, int ticket, QString resource_id)
 {
-    auto iter = m_active_parse_tasks.constFind(ticket);
-    if (iter == m_active_parse_tasks.constEnd() || !m_resources_index.contains(resource_id))
+    if (!m_resources_index.contains(resource_id))
         return;
 
     int row = m_resources_index[resource_id];
@@ -797,27 +814,14 @@ QString ResourceFolderModel::instDirPath() const
     return QFileInfo(m_instance->instanceRoot()).absoluteFilePath();
 }
 
-void ResourceFolderModel::onParseFailed(int ticket, QString resource_id)
+void ResourceFolderModel::onParseFailed(Task* task, int ticket, QString resource_id)
 {
-    auto iter = m_active_parse_tasks.constFind(ticket);
-    if (iter == m_active_parse_tasks.constEnd() || !m_resources_index.contains(resource_id))
-        return;
-
-    auto removed_index = m_resources_index[resource_id];
-    auto removed_it = m_resources.begin() + removed_index;
-    Q_ASSERT(removed_it != m_resources.end());
-
-    beginRemoveRows(QModelIndex(), removed_index, removed_index);
-    m_resources.erase(removed_it);
-
-    // update index
-    m_resources_index.clear();
-    int idx = 0;
-    for (auto const& mod : qAsConst(m_resources)) {
-        m_resources_index[mod->internal_id()] = idx;
-        idx++;
+    // We don't remove resources that failed to parse by default,
+    // but we must clear their resolving state to unblock future attempts.
+    auto res = find(resource_id);
+    if (res) {
+        res->finishResolvingFailed();
     }
-    endRemoveRows();
 }
 
 void ResourceFolderModel::applyUpdates(QSet<QString>& current_set, QSet<QString>& new_set, QMap<QString, Resource::Ptr>& new_resources)
